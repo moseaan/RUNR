@@ -1,0 +1,15 @@
+# Runtime & tooling
+- Python 3.12, Node 20, Postgres 15.
+- Env via dotenv; no plain-text secrets.
+- Use alembic for all schema changes; no raw DDL.
+# Execution discipline
+- After code gen: `pytest -q` → `uvicorn --port 8000 --reload` → cURL smoke test → THEN reply.
+- Use `docker compose up -d db` before backend tests.
+- Abort any migration that drops data unless confirmed by @MO$EAN.
+# Self-modifying rules
+- AI may append new lines to this file when a repeated error pattern is detected >2×.
+- AI must ping @MO$EAN in chat when it edits rules.
+# Guardrails
+- No package downgrade without explicit approval.
+- Never commit failing tests.
+- Hard ceiling: <5 min response per task; chunk large work.
