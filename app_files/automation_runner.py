@@ -356,7 +356,7 @@ def run_single_automation(platform: str, engagement_type: str, link: str, quanti
             "message": message
         }
         save_history_callback(history_entry)
-        print(f"Single Promo Job {job_id} finished. Status: {"Success" if success else "Failed"}. Duration: {duration:.2f}s")
+        print(f"Single Promo Job {job_id} finished. Status: {'Success' if success else 'Failed'}. Duration: {duration:.2f}s")
     # --- End of Original Code Logic ---
 
 # --- Profile Automation --- (Added Stop Check) ---
@@ -692,30 +692,3 @@ def scrape_latest_post_with_playwright(username: str) -> Tuple[Optional[str], Op
                 print("[Playwright Scrape] Context closed in finally block.")
             except Exception as close_err:
                 print(f"[Playwright Scrape] Error closing context in finally: {close_err}")
-
-# Example of running the runner directly (for testing)
-# if __name__ == "__main__":
-#     print("Testing automation runner...")
-#     # Load a test profile (replace with actual loading if needed)
-#     import profile_manager
-#     import history_manager # Need this for testing
-#     # Dummy callbacks for testing
-#     def dummy_status_update(job_id, status, message):
-#         print(f"[Dummy Status] Job {job_id}: {status} - {message}")
-#     def dummy_history_save(entry):
-#         print(f"[Dummy History] Saving: {entry}")
-#         history_manager.save_history_entry(entry) # Use the real saver for test persistence
-#
-#     test_profiles = profile_manager.load_profiles()
-#     test_profile_name = "Test" # Or choose one that exists
-#     if test_profile_name in test_profiles:
-#         test_profile_data = test_profiles[test_profile_name]
-#         test_link = "https://www.instagram.com/reel/C6Jh2ZxuUaA/" # Replace with a valid test link
-#         test_job_id = f"test_profile_{time.time()}"
-#         run_automation_profile(test_profile_name, test_profile_data, test_link, test_job_id, dummy_status_update, dummy_history_save)
-#     else:
-#         print(f"Test profile '{test_profile_name}' not found in profiles.json")
-#
-#     # Test single run
-#     test_single_job_id = f"test_single_{time.time()}"
-#     run_single_automation("Instagram", "Views", "https://www.instagram.com/reel/C6Jh2ZxuUaA/", 110, test_single_job_id, dummy_status_update, dummy_history_save) 
