@@ -24,6 +24,7 @@ import json
 import uuid
 from ui_utils import format_datetime # Import the filter
 import logging
+from waitress import serve # Added for Render deployment
 # from apscheduler.executors.asyncio import AsyncIOExecutor # REMOVE Import
 
 # --- App and Scheduler Configuration ---
@@ -656,6 +657,7 @@ def stop_profile_promo():
 
 # --- App Startup --- 
 if __name__ == '__main__':
-    # Initialization call is now done earlier
-    print("Flask app started via __main__. Use run_waitress.bat or flask run --no-reload")
-    # app.run(debug=False, host='0.0.0.0', port=5000) # Don't run directly like this with scheduler 
+    # Ensure the app listens on the port specified by Render's PORT env var
+    port = int(os.environ.get("PORT", 10000))
+    print(f"Attempting to serve Flask app on host 0.0.0.0, port {port} using Waitress...")
+    serve(app, host="0.0.0.0", port=port) 
