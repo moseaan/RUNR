@@ -1,1 +1,5 @@
+<<<<<<< HEAD
 After making a change, test it in the browser at http://localhost:5000/ using the browserMCP. Assume the server is already running.
+=======
+After making a change, test it in the browser at http://localhost:5000/ using the browserMCP. Assume the server is already running.
+>>>>>>> c41166f63fc76c59b9cbb7ac1412c537055c90ff
