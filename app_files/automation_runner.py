@@ -479,8 +479,7 @@ def run_single_automation(platform: str, engagement_type: str, link: str, quanti
         with sync_playwright() as p:
             print(f"Launching new browser instance (headless, non-persistent) for single automation.")
             browser = p.chromium.launch(
-                headless=True, 
-                channel="chrome"
+                headless=True
                 # No executable_path needed, Playwright will use its own installed browser
             )
             context = browser.new_context()
@@ -588,8 +587,6 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
             browser = p.chromium.launch(
                 headless=True, 
                 slow_mo=50, # Can keep slow_mo if it helps stability, even headless
-                channel="chrome"
-                # No executable_path needed
             )
             browser_context = browser.new_context()
             page = browser_context.new_page()
@@ -776,8 +773,6 @@ def scrape_latest_post_with_playwright(username: str) -> Tuple[Optional[str], Op
             print(f"[Playwright Scrape] Launching new browser instance (headless, non-persistent).")
             browser = p.chromium.launch(
                 headless=True, 
-                channel="chrome"
-                # No executable_path needed
             )
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36" 
