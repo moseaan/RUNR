@@ -23,11 +23,18 @@
                             {# Ensure entry is a dictionary before accessing #}
                             {% if entry is mapping %}
                                 <tr>
+                                    {# TEMP: Display raw data for debugging #}
+                                    {# <td colspan="6">{{ entry | string }}</td> #}
+                                    {# OLD TIMESTAMP LOGIC #}
                                     <td>
                                         {# Use get for timestamp too #}
                                         {{ entry.get('start_time') | format_datetime if entry.get('start_time') else entry.get('timestamp', 'N/A') | format_datetime if entry.get('timestamp') else 'N/A' }}
                                     </td>
+                                    {# #}
+                                    {# OLD TYPE LOGIC #}
                                     <td>{{ entry.get('type', 'Unknown') | capitalize }}</td>
+                                    {# #}
+                                    {# OLD DETAILS LOGIC #}
                                     <td>
                                         {% set entry_type = entry.get('type') %}
                                         {% if entry_type == 'single' or entry_type == 'Single Promo' %}
@@ -48,11 +55,17 @@
                                             {% if entry.get('quantity') %} Qty/Loops: {{ entry.get('quantity') }} {% endif %}
                                         {% endif %}
                                     </td>
+                                    {# #}
+                                    {# OLD STATUS LOGIC #}
                                     {% set status = entry.get('status', 'unknown') %}
                                     <td class="status-{{ status | lower }}">
                                         {{ status | capitalize }}
                                     </td>
+                                    {# #}
+                                    {# OLD MESSAGE LOGIC #}
                                     <td class="message-cell">{{ entry.get('message', '') }}</td>
+                                    {# #}
+                                    {# OLD DURATION LOGIC #}
                                     <td>
                                         {% set duration = entry.get('duration_seconds') %}
                                         {% if duration is not none and duration is number %}
@@ -61,11 +74,12 @@
                                             N/A
                                         {% endif %}
                                     </td>
+                                    {# #}
                                 </tr>
                             {% else %}
                                 <tr><td colspan="6">Error: Invalid history entry format found.</td></tr>
-                            {% endif %}
-                        {% endfor %}
+                            {% endif %} {# End of: if entry is mapping #}
+                        {% endfor %} {# End of: for entry in history #}
                     </tbody>
                 </table>
             {% else %}

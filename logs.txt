@@ -1,0 +1,35 @@
+Script loaded.
+script.js?v=1.3:6 DOM fully loaded and parsed
+script.js?v=1.3:436 Initializing common app components (loading data)... 
+script.js?v=1.3:458 Executing loadProfiles...
+script.js?v=1.3:48 API Call: GET /api/profiles 
+script.js?v=1.3:473 Executing loadMinimumQuantities...
+script.js?v=1.3:48 API Call: GET /api/config/minimums 
+script.js?v=1.3:1474 Could not find #added-engagement-rows container to attach delegated listener.
+(anonymous)	@	script.js?v=1.3:1474
+script.js?v=1.3:71 API Success: GET /api/profiles 
+{IG Pic: {…}, Main: {…}}
+script.js?v=1.3:462 loadProfiles fetched data successfully into cache: 
+{IG Pic: {…}, Main: {…}}
+script.js?v=1.3:71 API Success: GET /api/config/minimums 
+{('Instagram', 'Likes'): 10, ('Instagram', 'Reach/Impressions'): 10, ('Instagram', 'Saves'): 10, ('Instagram', 'Shares'): 10, ('Instagram', 'Views'): 100, …}
+script.js?v=1.3:476 loadMinimumQuantities completed successfully: 
+{('Instagram', 'Likes'): 10, ('Instagram', 'Reach/Impressions'): 10, ('Instagram', 'Saves'): 10, ('Instagram', 'Shares'): 10, ('Instagram', 'Views'): 100, …}
+script.js?v=1.3:446 Common init data load results: 
+(2) [{…}, {…}]
+script.js?v=1.3:496 Page Check (Inside IIFE): Promo=false, Monitor=false, Profile=false, History=true
+script.js?v=1.3:505 #profile-select-promo not found during global init.
+script.js?v=1.3:512 #profile-select not found during global init.
+script.js?v=1.3:542 Running History Page specific init...
+script.js?v=1.3:2237 Initializing History Page...
+script.js?v=1.3:556 Critical error during app initialization: ReferenceError: showStatus is not defined
+    at initializeHistoryPage (script.js?v=1.3:2240:5)
+    at script.js?v=1.3:543:17
+(anonymous)	@	script.js?v=1.3:556
+await in (anonymous)		
+(anonymous)	@	script.js?v=1.3:560
+script.js?v=1.3:136 showStatus: Could not find status elements (areaId: status-text, messageId: status-text). Message: Initialization Error
+showStatus	@	script.js?v=1.3:136
+(anonymous)	@	script.js?v=1.3:558
+await in (anonymous)		
+(anonymous)	@	script.js?v=1.3:560

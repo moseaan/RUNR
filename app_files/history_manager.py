@@ -2,7 +2,10 @@ import json
 import os
 import datetime
 
-HISTORY_FILE = "history.json"
+# Get the directory where this script resides
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+HISTORY_FILE = os.path.join(SCRIPT_DIR, "history.json") # Construct absolute path
+
 MAX_HISTORY_ENTRIES = 100 # Limit the number of entries to keep
 
 def load_history(filename=HISTORY_FILE):

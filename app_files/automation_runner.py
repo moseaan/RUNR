@@ -10,6 +10,7 @@ from config import CATEGORY_MAPPING # Import mapping directly
 from profile_editor import INSTAGRAM_ENGAGEMENT_TYPES # Get engagement types
 import datetime # Import datetime
 import traceback # For detailed error logging
+from typing import Tuple, Optional
 
 # Load environment variables from .env file
 load_dotenv()
@@ -19,9 +20,6 @@ TARGET_EMAIL = os.getenv("TARGET_EMAIL")
 MAIL_PASSWORD = os.getenv("MAIL_PASSWORD")
 DOGEHYPE_URL = config.TARGET_WEBSITE_URL
 MAIL_URL = "https://www.mail.com/"
-
-# Define path for persistent session data (relative to project root)
-USER_DATA_DIR = os.path.join(os.path.dirname(__file__), "dogehype_session")
 
 def login_to_dogehype(page: Page, context: BrowserContext) -> Page:
     # --- PASTE of login_to_dogehype function from automation.py --- 
@@ -287,21 +285,27 @@ def run_single_automation(platform: str, engagement_type: str, link: str, quanti
     status_update_callback(job_id, 'running', f'Starting single promo for {engagement_type}...')
     success = False
     message = "Automation failed before execution."
-    browser = None # Initialize browser variable
-    
+    # browser = None # Initialize browser variable - removed
+
+    # --- Original Code Logic --- 
+    context = None # Initialize context for finally block
     try:
         with sync_playwright() as p:
-            # Use persistent context
-            print(f"Using User Data Directory: {USER_DATA_DIR}")
-            context = p.chromium.launch_persistent_context(USER_DATA_DIR, headless=False, slow_mo=50)
+            print(f"Using Chrome Profile Path: {config.CHROME_PROFILE_PATH}")
+            print(f"Using Chrome Executable: {config.CHROME_EXECUTABLE_PATH}")
+            context = p.chromium.launch_persistent_context(
+                config.CHROME_PROFILE_PATH, 
+                headless=False, 
+                # slow_mo=50, # Keep slow_mo for stability if needed
+                channel="chrome", # Specify Chrome channel
+                executable_path=config.CHROME_EXECUTABLE_PATH # Specify executable path
+            )
             page = context.pages[0] if context.pages else context.new_page()
             
-            status_update_callback(job_id, 'running', 'Logging into Dogehype...')
+            # Although profile loads the session, call login func to handle potential edge cases/verification
+            # The login function should ideally check if already logged in first.
+            status_update_callback(job_id, 'running', 'Verifying Dogehype login...') 
             page = login_to_dogehype(page, context) # Re-assign page in case a new one was created
-            
-            # Navigate to the misc services page (or relevant page) - place_order handles this now
-            # page.goto(f"{DOGEHYPE_URL}/services", wait_until='load', timeout=60000)
-            # print("Navigated to services page.")
             
             status_update_callback(job_id, 'running', f'Placing order: {quantity} {engagement_type}...')
             place_order(page, platform, engagement_type, link, quantity)
@@ -311,8 +315,7 @@ def run_single_automation(platform: str, engagement_type: str, link: str, quanti
             message = f"Single promo successful: {quantity} {engagement_type} for {link}"
             status_update_callback(job_id, 'success', message)
             
-            context.close() # Close context here after successful run
-            browser = None # Ensure browser is None since context handled it
+            # context.close() # Close context here after successful run - Closed in finally
 
     except PlaywrightError as e:
         print(f"Playwright Error during single automation (Job ID: {job_id}): {e}")
@@ -329,9 +332,13 @@ def run_single_automation(platform: str, engagement_type: str, link: str, quanti
         message = f"Unexpected Error: {e}"
         status_update_callback(job_id, 'failed', message)
     finally:
-        if browser: # Should be None if persistent context was used
-             browser.close()
-             print("Closed Playwright browser.")
+        # Clean up context 
+        if context: 
+             try:
+                 context.close()
+                 print("Closed Playwright browser context.")
+             except Exception as close_err:
+                  print(f"Error closing context: {close_err}")
              
         end_time = datetime.datetime.now()
         duration = (end_time - start_time).total_seconds()
@@ -350,6 +357,7 @@ def run_single_automation(platform: str, engagement_type: str, link: str, quanti
         }
         save_history_callback(history_entry)
         print(f"Single Promo Job {job_id} finished. Status: {"Success" if success else "Failed"}. Duration: {duration:.2f}s")
+    # --- End of Original Code Logic ---
 
 # --- Profile Automation --- (Added Stop Check) ---
 def run_automation_profile(profile_name: str, profile_data: dict, link: str, job_id: str, 
@@ -399,8 +407,15 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
                  status_update_callback(job_id, 'stopped', final_message)
                  return # Exit early
             
-            print(f"Using User Data Directory: {USER_DATA_DIR}")
-            browser_context = p.chromium.launch_persistent_context(USER_DATA_DIR, headless=False, slow_mo=50)
+            print(f"Using Chrome Profile Path: {config.CHROME_PROFILE_PATH}")
+            print(f"Using Chrome Executable: {config.CHROME_EXECUTABLE_PATH}")
+            browser_context = p.chromium.launch_persistent_context(
+                config.CHROME_PROFILE_PATH, 
+                headless=False, 
+                slow_mo=50,
+                channel="chrome", # Specify Chrome channel
+                executable_path=config.CHROME_EXECUTABLE_PATH # Specify executable path
+            )
             page = browser_context.pages[0] if browser_context.pages else browser_context.new_page()
             
             status_update_callback(job_id, 'running', 'Logging into Dogehype...')
@@ -570,6 +585,113 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
         }
         save_history_callback(history_entry) # Calls app.save_history_entry_callback
         print(f"Profile Promo Job {job_id} ('{profile_name}') finished. Final Status: {final_status}. Duration: {duration:.2f}s")
+
+# --- NEW Playwright-based Scraping Function ---
+def scrape_latest_post_with_playwright(username: str) -> Tuple[Optional[str], Optional[datetime.datetime]]:
+    """
+    Scrapes the latest Instagram post URL and timestamp for a given username using Playwright.
+    This version attempts to handle login via a persistent Chrome profile.
+    """
+    profile_url = f"https://www.instagram.com/{username}/"
+    post_url: Optional[str] = None
+    timestamp_utc: Optional[datetime.datetime] = None  # Placeholder, not implemented yet
+
+    if not config.CHROME_PROFILE_PATH or not os.path.exists(config.CHROME_PROFILE_PATH):
+        print(f"[Playwright Scrape] Error: CHROME_PROFILE_PATH is not set or does not exist: {config.CHROME_PROFILE_PATH}")
+        return None, None
+
+    print(f"[Playwright Scrape] Attempting to scrape: {profile_url} using profile: {config.CHROME_PROFILE_PATH}")
+    context: Optional[BrowserContext] = None # Define context here for finally block
+
+    try:
+        with sync_playwright() as p:
+            print(f"[Playwright Scrape] Launching persistent context: {config.CHROME_PROFILE_PATH}")
+            context = p.chromium.launch_persistent_context(
+                config.CHROME_PROFILE_PATH,
+                headless=True,
+                channel="chrome",
+                executable_path=config.CHROME_EXECUTABLE_PATH,
+                timeout=60000
+            )
+            page = context.pages[0] if context.pages else context.new_page()
+            
+            print(f"[Playwright Scrape] Navigating to {profile_url}")
+            page.goto(profile_url, wait_until='domcontentloaded', timeout=90000)
+            
+            print("[Playwright Scrape] Waiting for main profile content to load...")
+            try:
+                # Wait for a general container that should exist on a profile page
+                main_content_selector = "main[role='main']" 
+                page.wait_for_selector(main_content_selector, timeout=45000) # Increased timeout
+                print(f"[Playwright Scrape] Main content ({main_content_selector}) loaded.")
+            except PlaywrightError as e:
+                print(f"[Playwright Scrape] Timeout or error waiting for main content ({main_content_selector}) for '{username}': {type(e).__name__} - {e}")
+                page.screenshot(path="debug_instagram_main_content_fail.png")
+                print("[Playwright Scrape] Saved screenshot to debug_instagram_main_content_fail.png")
+                # context.close() # Already handled by with statement or finally
+                return None, None
+
+            # Additional short wait for any dynamic elements within main content
+            page.wait_for_timeout(3000)
+
+            print("[Playwright Scrape] Searching for the first post link within article section...")
+            # Selector for the first post: an <a> tag with href starting /p/ inside an <article> element, within the main content
+            # This is a common structure for Instagram posts.
+            post_link_selector = 'main[role="main"] article a[href^="/p/"]'
+            
+            try:
+                first_post_link_locator = page.locator(post_link_selector).first
+                print(f"[Playwright Scrape] Waiting for post link ({post_link_selector}) to be visible...")
+                expect(first_post_link_locator).to_be_visible(timeout=30000)
+                
+                href = first_post_link_locator.get_attribute('href')
+                if href and href.startswith('/p/'):
+                    shortcode = href.split('/')[2]
+                    post_url = f"https://www.instagram.com/p/{shortcode}/"
+                    print(f"[Playwright Scrape] Success! Found latest post URL: {post_url}")
+                else:
+                    print(f"[Playwright Scrape] Found a link, but href was invalid or missing: {href}")
+                    page.screenshot(path="debug_instagram_invalid_href.png")
+                    print("[Playwright Scrape] Saved screenshot to debug_instagram_invalid_href.png")
+                    return None, None
+            except PlaywrightError as e: # Catches TimeoutError from expect().to_be_visible()
+                print(f"[Playwright Scrape] Could not find or make visible the post link ({post_link_selector}) for '{username}': {type(e).__name__} - {e}")
+                page.screenshot(path="debug_instagram_post_not_found.png")
+                print("[Playwright Scrape] Saved screenshot to debug_instagram_post_not_found.png")
+                return None, None
+
+            # context.close() # Handled by with sync_playwright() and finally block
+            return post_url, timestamp_utc
+
+    except PlaywrightError as e:
+        print(f"[Playwright Scrape] Playwright-specific error for '{username}': {type(e).__name__} - {e}")
+        if page: # Check if page exists before trying to screenshot
+            try:
+                page.screenshot(path="debug_instagram_playwright_error.png")
+                print("[Playwright Scrape] Saved screenshot to debug_instagram_playwright_error.png")
+            except Exception as screenshot_err:
+                print(f"[Playwright Scrape] Could not take screenshot on Playwright error: {screenshot_err}")
+        return None, None
+    except Exception as e:
+        print(f"[Playwright Scrape] Unexpected error for '{username}': {type(e).__name__} - {e}")
+        # page might not be defined if error occurred before its assignment or in context creation
+        if 'page' in locals() and page: 
+            try:
+                page.screenshot(path="debug_instagram_unexpected_error.png")
+                print("[Playwright Scrape] Saved screenshot to debug_instagram_unexpected_error.png")
+            except Exception as screenshot_err:
+                print(f"[Playwright Scrape] Could not take screenshot on unexpected error: {screenshot_err}")
+        # Consider logging traceback for unexpected errors:
+        # import traceback
+        # print(traceback.format_exc())
+        return None, None
+    finally:
+        if context: # Check if context was successfully created
+            try:
+                context.close()
+                print("[Playwright Scrape] Context closed in finally block.")
+            except Exception as close_err:
+                print(f"[Playwright Scrape] Error closing context in finally: {close_err}")
 
 # Example of running the runner directly (for testing)
 # if __name__ == "__main__":

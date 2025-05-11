@@ -49,5 +49,67 @@
             "min_delay": 300,
             "max_delay": 600
         }
+    },
+    "IG Pic": {
+        "engagements": [
+            {
+                "type": "Likes",
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 10,
+                "max_quantity": 20,
+                "loops": 2
+            }
+        ],
+        "loop_settings": {
+            "loops": 2,
+            "delay": 30,
+            "random_delay": false,
+            "min_delay": 0,
+            "max_delay": 0
+        }
+    },
+    "IG Reel": {
+        "engagements": [
+            {
+                "type": "Views",
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 100,
+                "max_quantity": 500,
+                "loops": 3
+            },
+            {
+                "type": "Likes",
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 10,
+                "max_quantity": 20,
+                "loops": 3
+            },
+            {
+                "type": "Saves",
+                "use_random_quantity": false,
+                "fixed_quantity": 10,
+                "min_quantity": null,
+                "max_quantity": null,
+                "loops": 1
+            },
+            {
+                "type": "Reach/Impressions",
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 200,
+                "max_quantity": 1000,
+                "loops": 3
+            }
+        ],
+        "loop_settings": {
+            "loops": 3,
+            "delay": 0,
+            "random_delay": true,
+            "min_delay": 300,
+            "max_delay": 600
+        }
     }
 }

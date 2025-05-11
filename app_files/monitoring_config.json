@@ -1,13 +1,21 @@
 {
-    "polling_interval_seconds": 300,
+    "polling_interval_seconds": 90,
     "targets": [
         {
-            "id": "d75a40a6-30e6-43d0-8d56-773a14e45b27",
-            "target_username": "mosean.avi",
-            "promotion_profile_name": "Test",
-            "last_pushed_post_url": null,
+            "id": "4d4dcbb8-7fb6-48ae-ad14-656acf969f18",
+            "target_username": "mosznn",
+            "promotion_profile_name": "IG Reel",
+            "last_pushed_post_url": "https://www.instagram.com/p/DJaKOeKSv6K/",
             "is_running": false,
-            "last_checked_timestamp": null
+            "last_checked_timestamp": "2025-05-09T19:18:35.148160+00:00"
+        },
+        {
+            "id": "43768e4f-8fc5-4517-9175-a5bb93adbd2c",
+            "target_username": "moseaan",
+            "promotion_profile_name": "IG Reel",
+            "last_pushed_post_url": "https://www.instagram.com/p/DJcb_PEJxHk/",
+            "is_running": false,
+            "last_checked_timestamp": "2025-05-09T19:24:35.153725+00:00"
         }
     ]
 }

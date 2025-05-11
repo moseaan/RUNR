@@ -42,11 +42,17 @@ import json
 # Local imports
 from profile_editor import ProfileEditorDialog, INSTAGRAM_ENGAGEMENT_TYPES # Import the new dialog and the list
 
+# --- Define base path ---
+# Get the directory where the current script (main_app.py) is located
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+PROFILE_FILE_PATH = os.path.join(SCRIPT_DIR, "profiles.json") # Construct full path
+
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.profiles = {} # Dictionary to hold loaded profiles
-        self.profile_file = "profiles.json" # File to store profiles
+        self.profile_file = PROFILE_FILE_PATH # Use the absolute path
+        # Load existing profiles from disk
         self._load_profiles()
 
         self.title("Social Media Automator")
@@ -149,8 +155,7 @@ class App(ctk.CTk):
 
         self.auto_promo_button = ctk.CTkButton(self.auto_promo_frame, text="Start Auto Promo", command=self.start_auto_promo)
         self.auto_promo_button.pack(pady=10)
-        self._update_profile_dropdown()
-
+        
         # --- Status Label --- 
         self.status_label = ctk.CTkLabel(self, text="Status: Idle", text_color="gray")
         self.status_label.pack(pady=(0, 10))
@@ -159,6 +164,19 @@ class App(ctk.CTk):
         if PLATFORM_OPTIONS:
              self.on_platform_select(self.platform_var.get())
         self._update_quantity_placeholder() 
+
+    def _load_profiles(self):
+        """Load profiles from JSON file into self.profiles and update UI."""
+        from profile_manager import load_profiles
+        # load_profiles returns dict; store and refresh dropdown
+        self.profiles = load_profiles(self.profile_file)
+        # Populate dropdown after loading
+        self._update_profile_dropdown()
+
+    def _save_profiles(self):
+        """Save current self.profiles to JSON file."""
+        from profile_manager import save_profiles
+        save_profiles(self.profiles, self.profile_file)
 
     def _update_quantity_placeholder(self):
         """Updates the quantity input placeholder based on current selections."""
@@ -348,59 +366,53 @@ class App(ctk.CTk):
             print("User cancelled.")
 
     # --- Profile Management Methods --- 
-    def _load_profiles(self):
-        try:
-            if os.path.exists(self.profile_file):
-                with open(self.profile_file, 'r') as f:
-                    self.profiles = json.load(f)
-                    print(f"Loaded profiles from {self.profile_file}")
-            else:
-                 print(f"{self.profile_file} not found. Starting with empty profiles.")
-                 self.profiles = {}
-        except (json.JSONDecodeError, IOError) as e:
-            print(f"Error loading profiles: {e}. Starting fresh.")
-            self.profiles = {}
-
-    def _save_profiles(self):
-        print("[MainApp] Attempting to save profiles...")
-        try:
-            with open(self.profile_file, 'w') as f:
-                json.dump(self.profiles, f, indent=4)
-                print(f"[MainApp] SUCCESS: Saved profiles to {self.profile_file}")
-        except Exception as e: # Catch any exception during save
-            print(f"[MainApp] *** FAILED to save profiles to {self.profile_file}: {e} ***")
-            import traceback
-            traceback.print_exc() # Print detailed error traceback
-            # Optionally show error to user via status bar
-            self.update_status(f"Error saving profiles: {e}", "red")
-
     def _update_profile_dropdown(self):
-        print("[MainApp] Updating profile dropdown...")
+        print("[MainApp] --- Entering _update_profile_dropdown ---") # Added entry point
         profile_names = list(self.profiles.keys())
-        print(f"[MainApp] Profile names to display: {profile_names}")
+        print(f"[MainApp] Raw profiles dictionary keys: {self.profiles.keys()}") # Log raw keys
+        print(f"[MainApp] Profile names list created: {profile_names}") # Confirm list creation
+
+        # Add check right before configure
+        if not isinstance(profile_names, list):
+             print(f"[MainApp] CRITICAL WARNING: profile_names is NOT a list before configure! Type: {type(profile_names)}")
+        elif not profile_names:
+             print("[MainApp] WARNING: profile_names is empty before configure.")
+        else:
+            print(f"[MainApp] Configuring dropdown with values: {profile_names}")
+
         self.profile_dropdown.configure(values=profile_names)
+        print("[MainApp] self.profile_dropdown.configure(values=...) called.") # Confirm call
+
         if profile_names:
             current_selection = self.profile_var.get()
+            print(f"[MainApp] Profile names exist. Current selection variable: '{current_selection}'") # Log current var value
             # Try to keep current selection if it still exists, else select first
             if current_selection in profile_names:
+                print(f"[MainApp] Setting dropdown value to existing selection: {current_selection}")
                 self.profile_dropdown.set(current_selection)
-                print(f"[MainApp] Dropdown set to existing selection: {current_selection}")
+                # print(f"[MainApp] Dropdown set to existing selection: {current_selection}") # Redundant log removed
             else:
-                self.profile_dropdown.set(profile_names[0]) # Select first profile if exists
-                print(f"[MainApp] Dropdown set to first profile: {profile_names[0]}")
+                new_selection = profile_names[0]
+                print(f"[MainApp] Setting dropdown value to first profile: {new_selection}")
+                self.profile_dropdown.set(new_selection) # Select first profile if exists
+                # print(f"[MainApp] Dropdown set to first profile: {profile_names[0]}") # Redundant log removed
+            print("[MainApp] Configuring dropdown state to 'normal'")
             self.profile_dropdown.configure(state="normal")
         else:
+            print("[MainApp] No profile names. Clearing dropdown value.")
             self.profile_dropdown.set("")
+            print("[MainApp] Configuring dropdown state to 'disabled'")
             self.profile_dropdown.configure(state="disabled")
-            print("[MainApp] Dropdown cleared and disabled.")
+            # print("[MainApp] Dropdown cleared and disabled.") # Redundant log removed
 
         # Update button states based on whether *any* profile exists now
         has_profiles = bool(profile_names)
         button_state = ctk.NORMAL if has_profiles else ctk.DISABLED
+        print(f"[MainApp] Updating button states. Has profiles: {has_profiles}, New state: {button_state}")
         self.delete_profile_button.configure(state=button_state)
         self.edit_profile_button.configure(state=button_state)
         self.auto_promo_button.configure(state=button_state)
-        print("[MainApp] Dropdown and button states updated.")
+        print("[MainApp] --- Exiting _update_profile_dropdown ---") # Added exit point
 
     # --- NEW METHOD to handle results from ProfileEditorDialog ---
     def _handle_profile_dialog_close(self, result, is_edit):

@@ -2,91 +2,154 @@
 
 {% block title %}RUNR - Manage Profiles{% endblock %}
 
+{% block body_attributes %}id="page-profiles"{% endblock %}
+
 {% block content %}
-    <div class="container">
-        <h2>Manage Profiles</h2>
-        
-        <!-- Status Area for Profile Page -->
-        <div id="profile-page-status-area" class="alert" role="alert" style="display: none;">
-            <span id="profile-page-status-message"></span>
-        </div>
+<!-- Toast Notification Container -->
+<div id="toast-container" aria-live="polite" aria-atomic="true" style="position: fixed; top: 1rem; right: 1rem; z-index: 1050; min-width: 250px;">
+    <!-- Toasts will be appended here by JavaScript -->
+</div>
 
-        <!-- Enable Username editing -->
-        <div class="form-group username-group">
-            <label for="username-display">Username:</label>
-            <input type="text" id="username-display" value="{{ username | default('DefaultUser') }}">
-            <button id="save-username-btn">Save Username</button>
-        </div>
-        <hr style="border-color: var(--border-color); margin: 20px 0;">
-
-        <div class="profile-management">
-             <h3>Promotion Profiles</h3>
-            <div class="profile-selection">
-                <label for="profile-select">Select Profile:</label>
-                <select id="profile-select" name="profiles">
-                    <option value="">-- Select --</option>
-                    <!-- Options added by JS -->
-                </select>
-                <button id="add-profile-btn">Add New</button>
-                <button id="edit-profile-btn" disabled>Edit Selected</button>
-                <button id="delete-profile-btn" disabled>Delete Selected</button>
-            </div>
-            <!-- Profile details could be displayed here upon selection -->
-        </div>
+<div class="container mt-4">
+    <!-- Status Area: Text only, no background -->
+    <div id="profile-page-status-area" class="status-area" style="min-height: 1.5em;">
+        <span id="profile-page-status-message" class="text-body"></span>
     </div>
 
-    <!-- Profile Editor Modal MOVED here -->
-     <div id="profile-editor-modal" class="modal">
-        <div class="modal-content">
-            <span class="close-btn" id="close-modal-btn">&times;</span>
-            <h2 id="editor-title">Add/Edit Profile</h2>
-            <form id="profile-editor-form">
-                <input type="hidden" id="original-profile-name">
+    <h2 class="mb-4">Manage Profiles</h2>
 
-                <div class="form-group">
-                    <label for="profile-name">Profile Name:</label>
-                    <input type="text" id="profile-name" required class="form-control">
-                </div>
-
-                <h3>Instagram Engagement Settings</h3>
-                <div class="engagement-header-row">
-                    <span>Engagement</span>
-                    <span>Fixed Qty</span>
-                    <span>Random?</span>
-                    <span>Min Qty</span>
-                    <span>Max Qty</span>
-                    <span>Loop(s)</span>
-                </div>
-                <div id="engagement-settings">
-                    <!-- Engagement rows added by JS -->
-                </div>
-
-                <h3>Loop Settings</h3>
-                <div class="loop-settings-section">
-                    <div class="form-group form-group-inline">
-                        <label for="loop-count">Loops:</label>
-                        <input type="number" id="loop-count" value="1" min="1" style="width: 80px;" class="form-control">
-                    </div>
-                    <div class="form-group form-group-inline">
-                        <label for="loop-delay">Delay:</label>
-                        <input type="number" id="loop-delay" value="0" min="0" step="any" title="Delay in seconds" class="form-control">
-                    </div>
-                    <div class="form-group form-group-inline">
-                        <input type="checkbox" id="use-random-delay" class="inline-cb form-check-input">
-                        <label for="use-random-delay" class="inline-label form-check-label">Random?</label>
-                        <label for="min-delay">Min:</label>
-                        <input type="number" id="min-delay" value="60" min="0" step="any" disabled title="Minimum delay in seconds" class="form-control">
-                        <label for="max-delay" class="inline-label">Max:</label>
-                        <input type="number" id="max-delay" value="300" min="0" step="any" disabled title="Maximum delay in seconds" class="form-control">
-                    </div>
+    <!-- Username Editing Card (Optional: Remove if not needed) -->
+    <div class="card mb-3">
+        <div class="card-header"><strong>Username</strong></div>
+        <div class="card-body">
+             <div class="row g-3 align-items-center">
+                 <div class="col">
+                     <input type="text" id="username-display" class="form-control" value="{{ username | default('Loading...') }}">
                  </div>
-
-                <div class="button-group">
-                    <button type="submit" id="save-profile-btn" class="btn btn-primary">Save Profile</button>
-                    <button type="button" id="cancel-modal-btn" class="btn btn-secondary">Cancel</button>
-                </div>
-            </form>
+                 <div class="col-auto">
+                     <button id="save-username-btn" class="btn btn-secondary">Save Username</button>
+                 </div>
+             </div>
         </div>
     </div>
+
+    <!-- Profile Management Card -->
+    <div class="card mb-3">
+        <div class="card-header"><strong>Promotion Profiles</strong></div>
+        <div class="card-body">
+            <div class="row g-3 align-items-end mb-3"> 
+                <div class="col-md-5"> <!-- Adjust width as needed -->
+                    <select id="profile-select" name="profiles" class="form-select">
+                        <option value="" selected>-- Select Profile --</option>
+                        <!-- Options added by JS -->
+                    </select>
+                </div>
+                <div class="col-md-7 d-flex justify-content-end align-items-center"> <!-- Buttons on the right -->
+                    <button id="add-profile-btn" class="btn btn-success me-2">Add New</button> <!-- Green for Add -->
+                    <button id="edit-profile-btn" class="btn btn-secondary me-2" disabled>Edit Selected</button> <!-- Standard secondary for Edit -->
+                    <button id="delete-profile-btn" class="btn btn-danger" disabled>Delete Selected</button> <!-- Red for Delete -->
+                </div>
+            </div>
+            <!-- Profile details display area (optional - can add later) -->
+            <!-- <div id="profile-details-area"></div> -->
+        </div>
+    </div>
+
+    <!-- Instagram Engagement Settings Card REMOVED FROM MAIN PAGE -->
+    <!-- 
+    <div class="card mb-3">
+        <div class="card-header"><strong>Instagram Engagement Settings</strong></div>
+        <div class="card-body p-2"> 
+            <div id="added-engagement-rows">
+            </div>
+        </div>
+    </div>
+     -->
+
+</div> <!-- /container -->
+
+<!-- Profile Editor Modal (Keep outside main container flow) -->
+ <div id="profile-editor-modal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" id="close-modal-btn">&times;</span>
+        <h2 id="editor-title" class="mb-4">Add/Edit Profile</h2>
+        <form id="profile-editor-form" novalidate>
+            <input type="hidden" id="original-profile-name">
+
+            <!-- Profile Name -->
+            <div class="mb-3">
+                <label for="profile-name" class="form-label">Profile Name:</label>
+                <input type="text" id="profile-name" required class="form-control">
+            </div>
+
+            <!-- Engagement Selection Area -->
+            <div class="card mb-3">
+                <div class="card-header"><strong>Add Engagement Settings</strong></div>
+                <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                        <div class="col-md-4">
+                            <label for="modal-platform-select" class="form-label">Platform:</label>
+                            <select id="modal-platform-select" class="form-select">
+                                <!-- Options added by JS -->
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="modal-engagement-select" class="form-label">Engagement Type:</label>
+                            <select id="modal-engagement-select" class="form-select" disabled>
+                                <option value="">-- Select Platform First --</option>
+                                <!-- Options added by JS based on platform -->
+                            </select>
+                        </div>
+                        <div class="col-md-4">
+                            <button type="button" id="add-engagement-row-btn" class="btn btn-success w-100" disabled>Add Engagement</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dynamically Added Engagement Rows Container -->
+            <div id="added-engagement-rows" class="mb-3">
+                <!-- Rows will be added here by JS -->
+            </div>
+
+            <!-- Loop Settings Card -->
+            <div class="card mb-3">
+                 <div class="card-header"><strong>Loop Settings</strong></div>
+                 <div class="card-body">
+                    <div class="row g-3 align-items-end">
+                         <div class="col-md-4">
+                            <label for="loop-count" class="form-label">Loops:</label>
+                            <input type="number" id="loop-count" value="1" min="1" class="form-control">
+                         </div>
+                         <div class="col-md-4">
+                            <label for="loop-delay" class="form-label">Fixed Delay:</label>
+                            <input type="number" id="loop-delay" value="0" min="0" step="0.1" title="Delay in seconds between loops" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                             <div class="form-check form-switch mb-1">
+                                 <input class="form-check-input" type="checkbox" id="use-random-delay" role="switch">
+                                 <label class="form-check-label text-light" for="use-random-delay">Random?</label>
+                             </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="min-delay" class="form-label">Min Delay:</label>
+                            <input type="number" id="min-delay" value="60" min="0" step="0.1" disabled title="Minimum random delay in seconds" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label for="max-delay" class="form-label">Max Delay:</label>
+                            <input type="number" id="max-delay" value="300" min="0" step="0.1" disabled title="Maximum random delay in seconds" class="form-control">
+                         </div>
+                     </div>
+                 </div>
+             </div>
+
+            <!-- Action Buttons -->
+            <div class="text-end border-top pt-3 mt-4">
+                <button type="button" id="cancel-modal-btn" class="btn btn-secondary me-2">Cancel</button>
+                <button type="submit" id="save-profile-btn" class="btn btn-primary">Save Profile</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 {% endblock %} 

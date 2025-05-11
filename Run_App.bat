@@ -25,8 +25,9 @@ IF NOT EXIST "%APP_FILES_DIR%\%APP_FILE_NAME%" (
 )
 
 REM Set PYTHONPATH - Still needed so waitress running via python can find the module
-ECHO Setting PYTHONPATH to include %APP_FILES_DIR%
-SET "PYTHONPATH=%APP_FILES_DIR%;%PYTHONPATH%" 
+SET "BROWSER_USE_LIB_PATH=%APP_FILES_DIR%\browser-use-main\browser-use-main"
+ECHO Setting PYTHONPATH to include %APP_FILES_DIR% and %BROWSER_USE_LIB_PATH%
+SET "PYTHONPATH=%APP_FILES_DIR%;%BROWSER_USE_LIB_PATH%;%PYTHONPATH%"
 
 ECHO ============================================================
 ECHO  Starting Waitress server for %APP_MODULE% (found in app_files)

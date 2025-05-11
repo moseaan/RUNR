@@ -92,6 +92,16 @@ label {
     background-size: 16px 12px;
 }
 
+/* Style disabled/readonly fields for dark theme */
+.form-control:disabled,
+.form-control[readonly],
+.form-select:disabled {
+    background-color: #343a40; /* EVEN Darker gray background */
+    border-color: var(--border-color); /* Keep border consistent */
+    color: #aaa; /* Dimmer text color */
+    opacity: 0.7; /* Slightly reduced opacity */
+}
+
 /* Keep basic button styles - Bootstrap will add more */
 button {
     padding: 10px 18px;
@@ -211,10 +221,9 @@ button:disabled {
 
 /* Modal Styles */
 .modal {
-    /* display: none; */ /* Hide by default - using visibility now */
-    visibility: hidden; /* Use visibility */
-    opacity: 0; /* Start fully transparent */
-    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; /* Add transition */
+    display: none; /* Hide by default */
+    opacity: 0; /* Start transparent for fade-in */
+    transition: opacity 0.3s ease-in-out; /* Transition opacity */
     position: fixed; /* Stay in place */
     z-index: 1000; /* Sit on top */
     left: 0;
@@ -223,15 +232,14 @@ button:disabled {
     height: 100%; /* Full height */
     overflow: auto; /* Enable scroll if needed */
     background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-    display: flex; /* Keep flex for centering content */
+    /* display: flex; <-- Moved to .is-visible */
     justify-content: center; /* Center horizontally */
     align-items: center; /* Center vertically */
 }
 
 .modal.is-visible {
-    /* display: flex; */ /* Keep display flex in the base .modal rule */
-    visibility: visible;
-    opacity: 1;
+    display: flex; /* Show using flex */
+    opacity: 1; /* Fade to opaque */
 }
 
 .modal-content {
@@ -241,8 +249,8 @@ button:disabled {
     border-radius: 8px;
     box-shadow: 0 4px 8px rgba(0,0,0,0.2);
     position: relative; /* For close button positioning */
-    width: 80%; /* Adjust as needed */
-    max-width: 750px; /* Adjust as needed */
+    width: 90%; /* Use percentage for better responsiveness */
+    max-width: 1100px; /* INCREASED max-width significantly */
     /* Ensure it doesn't shrink if content is small */
     flex-shrink: 0;
      /* Allow internal scrolling if content overflows */
@@ -269,37 +277,45 @@ button:disabled {
 /* Engagement Settings Layout - Improved Grid */
 /* Header Row Styling */
 .engagement-header-row {
-    display: grid;
-    /* MUST match the grid-template-columns of .engagement-row */
-    grid-template-columns: minmax(100px, 1.5fr) 1fr 0.6fr 1fr 1fr 0.8fr; 
-    gap: 12px;
+    /* display: grid; <-- REMOVED CONFLICT */
+    /* grid-template-columns: minmax(100px, 1.5fr) 1fr 0.6fr 1fr 1fr 0.8fr; <-- REMOVED CONFLICT */
+    gap: 12px; /* Keep gap for Bootstrap row */
     padding: 8px 0; /* Padding top/bottom */
     margin-bottom: 8px;
     border-bottom: 2px solid var(--border-color); /* Stronger border below header */
     font-weight: 600; /* Bolder text */
+    /* Ensure it behaves like a Bootstrap row if parent isn't already .row */
+    /* display: flex; flex-wrap: wrap; <-- Add if needed, but HTML structure should handle it */
 }
 
+/* Remove styling specific to the old header grid cells if they conflict */
+/*
 .engagement-header-row span {
-    background-color: #3a3f44; /* Dark gray background box (same as input bg) */
-    padding: 5px 8px; /* Padding inside the box */
-    border-radius: 4px; /* Slightly rounded corners */
-    text-align: center; /* Center text */
-    font-size: 0.9em; /* Slightly smaller font */
-    overflow: hidden; /* Prevent text overflow */
-    text-overflow: ellipsis; /* Add ellipsis if text too long */
-    white-space: nowrap; /* Keep on one line */
+    background-color: #3a3f44; 
+    padding: 5px 8px; 
+    border-radius: 4px; 
+    text-align: center; 
+    font-size: 0.9em; 
+    overflow: hidden; 
+    text-overflow: ellipsis; 
+    white-space: nowrap; 
 }
+*/
 
 #engagement-settings .engagement-row {
-    display: grid;
-    /* Label | Fixed | Rand CB | Min | Max | Loop Count */
-    grid-template-columns: minmax(100px, 1.5fr) 1fr 0.6fr 1fr 1fr 0.8fr; 
-    gap: 12px;
+    /* display: grid; <-- REMOVED CONFLICT */
+    /* grid-template-columns: minmax(100px, 1.5fr) 1fr 0.6fr 1fr 1fr 0.8fr; <-- REMOVED CONFLICT */
+    display: flex; /* ADDED: Explicitly use flexbox */
+    flex-wrap: wrap; /* ADDED: Allow wrapping if needed, standard for .row */
+    gap: 12px; /* Keep gap for Bootstrap row */
     align-items: center;
     margin-bottom: 10px;
     padding-bottom: 10px;
     border-bottom: 1px solid var(--border-color);
+    /* Ensure it behaves like a Bootstrap row if parent isn't already .row */
+    /* display: flex; flex-wrap: wrap; <-- Add if needed, but HTML/JS structure should handle it */ /* MOVED UP */
 }
+
 #engagement-settings .engagement-row:last-child {
     border-bottom: none;
     padding-bottom: 0;

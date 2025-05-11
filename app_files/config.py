@@ -3,6 +3,15 @@
 # !!! IMPORTANT: Replace this with the actual URL of the target website !!!
 TARGET_WEBSITE_URL = "https://dogehype.com/" # Or the specific page for automation
 
+# --- Browser Profile Path --- 
+# Path to the Google Chrome User Data directory for persistent sessions
+# Find yours by typing chrome://version in your Chrome address bar
+CHROME_PROFILE_PATH = r"C:\Users\369\AppData\Local\Google\Chrome\User Data\YAPP"
+
+# Optional: Specify the path to your installed Chrome executable
+# Found via chrome://version -> Executable Path
+CHROME_EXECUTABLE_PATH = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+
 # --- UI Options --- 
 PLATFORM_OPTIONS = ["Instagram", "TikTok", "YouTube", "X (Twitter)"]
 # Basic engagement options - UI updates these based on platform
@@ -64,3 +73,11 @@ MINIMUM_QUANTITIES = {
 }
 
 # You can add other configuration variables here later 
+
+# Add the DogeHype URL
+DOGEHYPE_URL = "https://dogehype.com"
+
+# --- Instagram Monitor Config ---
+INSTAGRAM_TARGET_USERNAME = "target_profile"  # Replace with the actual public username to monitor
+INSTAGRAM_POLL_INTERVAL_MINUTES = 2         # How often to check for new posts (in minutes)
+INSTAGRAM_STATE_FILE = "instagram_last_post.txt" # File to store the last seen post shortcode

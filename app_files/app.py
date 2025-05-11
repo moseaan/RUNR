@@ -1,3 +1,12 @@
+import sys
+import os
+# Add the browser_use library path to sys.path - RE-ADDING
+if 'browser_use' not in sys.modules:
+    browser_use_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'browser-use-main', 'browser-use-main'))
+    if browser_use_lib_path not in sys.path:
+        sys.path.insert(0, browser_use_lib_path)
+        print(f"Added to sys.path: {browser_use_lib_path}")
+
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_apscheduler import APScheduler # Import APScheduler
 import profile_manager
@@ -15,10 +24,16 @@ import json
 import uuid
 from ui_utils import format_datetime # Import the filter
 import logging
+# from apscheduler.executors.asyncio import AsyncIOExecutor # REMOVE Import
 
 # --- App and Scheduler Configuration ---
 class Config:
     SCHEDULER_API_ENABLED = True # Optional: enables a default scheduler UI at /scheduler
+    # Optional: Configure job defaults if needed
+    # SCHEDULER_JOB_DEFAULTS = {
+    #     'coalesce': False,
+    #     'max_instances': 3
+    # }
 
 app = Flask(__name__)
 app.config.from_object(Config()) # Apply configuration
@@ -30,6 +45,176 @@ logging.basicConfig(level=logging.INFO)
 scheduler = APScheduler()
 scheduler.init_app(app)
 scheduler.start()
+
+# --- Job Status Tracking --- (Used for manual/profile promotions)
+job_statuses = {} # In-memory dictionary to store job status: {job_id: {'status': 'pending/running/success/failed', 'message': '...'}}
+
+# --- CONSTANTS --- (Keep location)
+# MONTIORING_JOB_ID = "instagram_monitoring_job" # Old ID, removed
+GLOBAL_MONITORING_CHECK_JOB_ID = "global_monitoring_check_job"
+SCHEDULE_INTERVAL_SECONDS = 60 # Default check interval
+DEFAULT_POST_AGE_LIMIT_HOURS = 1 # Only promote posts newer than this
+
+# --- Background Task Logic --- (No longer needs to be async)
+def run_global_monitoring_check():
+    """Scheduled function that checks ALL active targets based on polling interval."""
+    print(f"\n--- Running Global Monitoring Check ({datetime.datetime.now()}) --- Sync Function")
+    config_data = instagram_monitor.load_monitoring_config()
+    all_targets = config_data.get('targets', [])
+    polling_interval = datetime.timedelta(seconds=config_data.get('polling_interval_seconds', instagram_monitor.DEFAULT_POLLING_INTERVAL))
+    profiles = None # Lazy load profiles if needed
+    config_needs_saving = False # Track if any target timestamps/URLs are updated
+    
+    active_targets = [t for t in all_targets if t.get('is_running')]
+    if not active_targets:
+        print("[Global Check] No active targets found. Skipping run.")
+        return
+
+    print(f"[Global Check] Found {len(active_targets)} active targets to evaluate.")
+
+    now_dt = datetime.datetime.now(datetime.timezone.utc) # Use timezone-aware now
+
+    for target in active_targets:
+        target_id = target.get("id")
+        target_username = target.get("target_username")
+        promo_profile_name = target.get("promotion_profile_name")
+        last_pushed_url = target.get("last_pushed_post_url")
+        last_checked_iso = target.get("last_checked_timestamp")
+
+        if not target_username or not promo_profile_name or not target_id:
+            print(f"[Global Check] Skipping target with incomplete data: {target}")
+            continue
+
+        # Determine if it's time to check this target
+        should_check = False
+        if last_checked_iso is None:
+            should_check = True # Never checked before
+            print(f"[Global Check] Target '{target_username}' ({target_id}): Never checked before.")
+        else:
+            try:
+                last_checked_dt = datetime.datetime.fromisoformat(last_checked_iso.replace('Z', '+00:00'))
+                if now_dt - last_checked_dt >= polling_interval:
+                    should_check = True
+                    print(f"[Global Check] Target '{target_username}' ({target_id}): Interval passed ({now_dt - last_checked_dt} >= {polling_interval}).")
+                # else:
+                #    print(f"[Global Check] Target '{target_username}' ({target_id}): Not time yet (Last checked: {last_checked_dt}).")
+            except (ValueError, TypeError) as e:
+                print(f"[Global Check] Target '{target_username}' ({target_id}): Error parsing last checked timestamp '{last_checked_iso}': {e}. Will check now.")
+                should_check = True
+
+        if should_check:
+            print(f"[Global Check] ===> Checking user: {target_username}, Promo Profile: {promo_profile_name} <===")
+            # Ensure we have the latest profile settings before attempting to scrape
+            if profiles is None: # Reload profiles if they haven't been loaded in this run
+                 profiles = profile_manager.load_profiles()
+                 
+            if promo_profile_name not in profiles:
+                 print(f"[Global Check] *** Error: Promotion profile '{promo_profile_name}' for target '{target_username}' not found! Cannot scrape or promo. Skipping. ***")
+                 continue # Skip this target if its profile is missing
+
+            promo_settings = profiles[promo_profile_name] # Get current settings
+
+            # Attempt to get latest post info (use synchronous call now)
+            latest_post_url, post_dt_utc = instagram_monitor.get_latest_post_info(target_username)
+            
+            # Update last checked time immediately after scraping attempt
+            target['last_checked_timestamp'] = now_dt.isoformat()
+            config_needs_saving = True
+
+            if not latest_post_url:
+                print(f"[Global Check] Failed to get latest post info for '{target_username}'. Skipping promotion check.")
+                continue # Error during scraping for this target
+
+            if latest_post_url == last_pushed_url:
+                print(f"[Global Check] Latest post URL for '{target_username}' is the same as the last pushed URL. No action needed.")
+                continue # Already processed this post
+
+            # --- New Post Detected --- 
+            print(f"[Global Check] New post detected for '{target_username}': {latest_post_url}")
+
+            if not post_dt_utc:
+                print(f"[Global Check] Could not determine post timestamp for {latest_post_url}. Cannot check age. Will not push.")
+                # Mark this URL as seen anyway to prevent re-checking its timestamp
+                target['last_pushed_post_url'] = latest_post_url
+                # config_needs_saving is already True
+            else:
+                # Ensure datetime has timezone info (should be UTC from scraping)
+                if post_dt_utc.tzinfo is None:
+                     post_dt_utc = post_dt_utc.replace(tzinfo=datetime.timezone.utc)
+                
+                time_diff = now_dt - post_dt_utc
+                print(f"[Global Check] Post time: {post_dt_utc}, Current time: {now_dt}, Difference: {time_diff}")
+
+                # Check if post is within the allowed age limit
+                if time_diff < datetime.timedelta(hours=DEFAULT_POST_AGE_LIMIT_HOURS):
+                    print(f"[Global Check] Post for '{target_username}' is within the last {DEFAULT_POST_AGE_LIMIT_HOURS} hour(s). Triggering promotion!")
+            
+                    # Schedule the actual promo job
+                    try:
+                        # Use a unique job ID including target ID and timestamp
+                        promo_job_id = f'monitor_promo_{target_id}_{time.time()}' 
+                        # Use the existing job_statuses dict for tracking these triggered promos
+                        job_statuses[promo_job_id] = {'status': 'pending', 'message': f'Monitor trigger for {target_username} ({promo_profile_name})'} 
+                        scheduler.add_job(
+                            id=promo_job_id,
+                            func=automation_runner.run_automation_profile,
+                            trigger='date', # Run immediately
+                            args=[promo_profile_name, promo_settings, latest_post_url, promo_job_id, update_job_status, save_history_entry_callback, requested_stops],
+                            misfire_grace_time=None
+                        )
+                        print(f"[Global Check] Scheduled promotion job {promo_job_id} for post {latest_post_url}")
+                        # Successfully scheduled, update last pushed URL in the target config
+                        target['last_pushed_post_url'] = latest_post_url
+                        # config_needs_saving is already True
+                    except Exception as e:
+                        print(f"[Global Check] *** Error scheduling promotion job for {latest_post_url} (Target: '{target_username}'): {e} ***")
+                        traceback.print_exc()
+                        # Don't update last_pushed_url if scheduling failed, maybe retry next time?
+                else:
+                    print(f"[Global Check] Post for '{target_username}' is older than {DEFAULT_POST_AGE_LIMIT_HOURS} hour(s). Skipping promotion.")
+                    # Update last pushed URL so we don't re-check this old post
+                    target['last_pushed_post_url'] = latest_post_url
+                    # config_needs_saving is already True
+        # End of if should_check
+    # End of loop through targets
+
+    # Save config changes if any timestamps or pushed URLs were updated
+    if config_needs_saving:
+        print(f"[Global Check] Saving updated monitoring config...")
+        instagram_monitor.save_monitoring_config(config_data)
+
+    print(f"--- Global Monitoring Check Finished --- Sync Function")
+
+# --- Function to initialize the global monitoring scheduler job ---
+def initialize_monitoring_job():
+    print("[Initialize Job] Attempting to initialize global monitoring scheduler job...")
+    try:
+        config_data = instagram_monitor.load_monitoring_config()
+        current_interval = config_data.get('polling_interval_seconds', SCHEDULE_INTERVAL_SECONDS)
+        print(f"[Initialize Job] Using interval from config: {current_interval} seconds.")
+        try:
+            scheduler.remove_job(GLOBAL_MONITORING_CHECK_JOB_ID)
+            print(f"[Initialize Job] Removed existing global monitoring job '{GLOBAL_MONITORING_CHECK_JOB_ID}'.")
+        except JobLookupError:
+            print(f"[Initialize Job] No existing job '{GLOBAL_MONITORING_CHECK_JOB_ID}' found to remove.")
+            pass 
+
+        # Schedule the SYNC function directly now
+        scheduler.add_job(
+            id=GLOBAL_MONITORING_CHECK_JOB_ID,
+            func=run_global_monitoring_check, # Schedule the sync function directly
+            trigger='interval',
+            seconds=current_interval,
+            next_run_time=datetime.datetime.now() + datetime.timedelta(seconds=10)
+        )
+        print(f"[Initialize Job] SUCCESS: Scheduled '{GLOBAL_MONITORING_CHECK_JOB_ID}' to run every {current_interval} seconds.")
+    except Exception as e:
+        print(f"[Initialize Job] *** FATAL ERROR: Failed to schedule global monitoring job: {e} ***") 
+        traceback.print_exc()
+
+# Initialize the monitoring job right after scheduler starts
+with app.app_context(): 
+    initialize_monitoring_job()
 
 # Register the custom filter
 app.jinja_env.filters['format_datetime'] = format_datetime
@@ -57,15 +242,6 @@ def format_datetime_filter(value, format='%Y-%m-%d %H:%M:%S'):
         # Handle cases where value is not a valid ISO string or None
         return value # Return original value if parsing fails
 
-# --- Job Status Tracking --- (Used for manual/profile promotions)
-job_statuses = {} # In-memory dictionary to store job status: {job_id: {'status': 'pending/running/success/failed', 'message': '...'}}
-
-# --- CONSTANTS ---
-# MONTIORING_JOB_ID = "instagram_monitoring_job" # Old ID, removed
-GLOBAL_MONITORING_CHECK_JOB_ID = "global_monitoring_check_job"
-SCHEDULE_INTERVAL_SECONDS = 60 # Check which targets need polling every 60 seconds
-DEFAULT_POST_AGE_LIMIT_HOURS = 1 # Only promote posts newer than this
-
 # --- Global state for job status and stop requests --- 
 job_status_updates = {} # Stores the latest status for each job ID
 requested_stops = set() # Stores job_ids requested to stop
@@ -80,6 +256,18 @@ def update_job_status(job_id, status, message=None):
         print(f"Warning: Job ID {job_id} not found in status tracker for update ({status}).")
 
 def save_history_entry_callback(entry):
+    """Callback passed to runner functions to save history."""
+    try:
+        # Attempt to save the entry using the history manager
+        success = history_manager.save_history_entry(entry)
+        if not success:
+            print(f"[Callback Error] Failed to save history entry for Job ID: {entry.get('job_id', 'N/A')}")
+    except Exception as e:
+        # Log any unexpected errors during saving
+        print(f"[Callback Exception] Error in save_history_entry_callback for Job ID {entry.get('job_id', 'N/A')}: {e}")
+        traceback.print_exc() # Print stack trace for detailed debugging
+
+    # Original logic: Clean up stop request if the job was stopped
     if entry.get('status') == 'stopped' and 'job_id' in entry:
         requested_stops.discard(entry['job_id']) # Ensure cleanup
 
@@ -296,10 +484,12 @@ def update_monitoring_settings():
     else:
         return jsonify({"success": False, "error": "Failed to save monitoring settings"}), 500
 
-# --- API Endpoint for Manual Scraping Test --- (Kept for debugging)
+# --- API Endpoint for Manual Scraping Test --- 
 @app.route('/api/monitoring/test_get_latest_post', methods=['POST'])
 def test_get_latest_post_route():
-    """Manually triggers the scraping logic for a specific username."""
+    """Manually triggers the scraping logic for a specific username.
+    Uses the same requests-based method as the background monitor for reliability.
+    """
     data = request.json
     if not data or 'target_username' not in data:
         return jsonify({"success": False, "error": "Missing target_username"}), 400
@@ -308,177 +498,23 @@ def test_get_latest_post_route():
     if not target_username:
         return jsonify({"success": False, "error": "Target username cannot be empty"}), 400
         
-    print(f"[API Test] Request received to test getting latest post for: {target_username}")
+    print(f"[API Test] Request received to test getting latest post for: {target_username} (using instagram_monitor.get_latest_post_info)")
     
-    # Call the existing scraping function
+    # --- Call the requests-based function from instagram_monitor ---
     latest_post_url, post_dt_utc = instagram_monitor.get_latest_post_info(target_username)
+    # -------------------------------------------------------------
     
     if latest_post_url:
-        timestamp_str = post_dt_utc.isoformat() if post_dt_utc else None
-        print(f"[API Test] Success. URL: {latest_post_url}, Timestamp: {timestamp_str}")
+        timestamp_str = post_dt_utc.isoformat() if post_dt_utc else None 
+        print(f"[API Test] Success via instagram_monitor. URL: {latest_post_url}, Timestamp: {timestamp_str}")
         return jsonify({
             "success": True, 
             "url": latest_post_url, 
             "timestamp_iso": timestamp_str
         })
     else:
-        print(f"[API Test] Failed to get latest post info for {target_username}.")
-        return jsonify({"success": False, "error": f"Failed to get latest post info for {target_username}. Check server logs for details."})
-
-# --- Background Task Logic --- (NEW Global Checker)
-
-def run_global_monitoring_check():
-    """Scheduled function that checks ALL active targets based on polling interval."""
-    print(f"\n--- Running Global Monitoring Check ({datetime.datetime.now()}) ---")
-    config_data = instagram_monitor.load_monitoring_config()
-    all_targets = config_data.get('targets', [])
-    polling_interval = datetime.timedelta(seconds=config_data.get('polling_interval_seconds', instagram_monitor.DEFAULT_POLLING_INTERVAL))
-    profiles = None # Lazy load profiles if needed
-    config_needs_saving = False # Track if any target timestamps/URLs are updated
-    
-    active_targets = [t for t in all_targets if t.get('is_running')]
-    if not active_targets:
-        print("[Global Check] No active targets found. Skipping run.")
-        return
-
-    print(f"[Global Check] Found {len(active_targets)} active targets to evaluate.")
-
-    now_dt = datetime.datetime.now(datetime.timezone.utc) # Use timezone-aware now
-
-    for target in active_targets:
-        target_id = target.get("id")
-        target_username = target.get("target_username")
-        promo_profile_name = target.get("promotion_profile_name")
-        last_pushed_url = target.get("last_pushed_post_url")
-        last_checked_iso = target.get("last_checked_timestamp")
-
-        if not target_username or not promo_profile_name or not target_id:
-            print(f"[Global Check] Skipping target with incomplete data: {target}")
-            continue
-
-        # Determine if it's time to check this target
-        should_check = False
-        if last_checked_iso is None:
-            should_check = True # Never checked before
-            print(f"[Global Check] Target '{target_username}' ({target_id}): Never checked before.")
-        else:
-            try:
-                last_checked_dt = datetime.datetime.fromisoformat(last_checked_iso.replace('Z', '+00:00'))
-                if now_dt - last_checked_dt >= polling_interval:
-                    should_check = True
-                    print(f"[Global Check] Target '{target_username}' ({target_id}): Interval passed ({now_dt - last_checked_dt} >= {polling_interval}).")
-                # else:
-                #    print(f"[Global Check] Target '{target_username}' ({target_id}): Not time yet (Last checked: {last_checked_dt}).")
-            except (ValueError, TypeError) as e:
-                print(f"[Global Check] Target '{target_username}' ({target_id}): Error parsing last checked timestamp '{last_checked_iso}': {e}. Will check now.")
-                should_check = True
-
-        if should_check:
-            print(f"[Global Check] ===> Checking user: {target_username}, Promo Profile: {promo_profile_name} <===")
-            # Ensure we have the latest profile settings before attempting to scrape
-            if profiles is None: # Reload profiles if they haven't been loaded in this run
-                 profiles = profile_manager.load_profiles()
-                 
-            if promo_profile_name not in profiles:
-                 print(f"[Global Check] *** Error: Promotion profile '{promo_profile_name}' for target '{target_username}' not found! Cannot scrape or promo. Skipping. ***")
-                 continue # Skip this target if its profile is missing
-
-            promo_settings = profiles[promo_profile_name] # Get current settings
-
-            # Attempt to get latest post info
-            latest_post_url, post_dt_utc = instagram_monitor.get_latest_post_info(target_username, promo_settings.get('auth', {}))
-            
-            # Update last checked time immediately after scraping attempt
-            target['last_checked_timestamp'] = now_dt.isoformat()
-            config_needs_saving = True
-
-            if not latest_post_url:
-                print(f"[Global Check] Failed to get latest post info for '{target_username}'. Skipping promotion check.")
-                continue # Error during scraping for this target
-
-            if latest_post_url == last_pushed_url:
-                print(f"[Global Check] Latest post URL for '{target_username}' is the same as the last pushed URL. No action needed.")
-                continue # Already processed this post
-
-            # --- New Post Detected --- 
-            print(f"[Global Check] New post detected for '{target_username}': {latest_post_url}")
-
-            if not post_dt_utc:
-                print(f"[Global Check] Could not determine post timestamp for {latest_post_url}. Cannot check age. Will not push.")
-                # Mark this URL as seen anyway to prevent re-checking its timestamp
-                target['last_pushed_post_url'] = latest_post_url
-                # config_needs_saving is already True
-            else:
-                # Ensure datetime has timezone info (should be UTC from scraping)
-                if post_dt_utc.tzinfo is None:
-                     post_dt_utc = post_dt_utc.replace(tzinfo=datetime.timezone.utc)
-                
-                time_diff = now_dt - post_dt_utc
-                print(f"[Global Check] Post time: {post_dt_utc}, Current time: {now_dt}, Difference: {time_diff}")
-
-                # Check if post is within the allowed age limit
-                if time_diff < datetime.timedelta(hours=DEFAULT_POST_AGE_LIMIT_HOURS):
-                    print(f"[Global Check] Post for '{target_username}' is within the last {DEFAULT_POST_AGE_LIMIT_HOURS} hour(s). Triggering promotion!")
-            
-                    # Schedule the actual promo job
-                    try:
-                        # Use a unique job ID including target ID and timestamp
-                        promo_job_id = f'monitor_promo_{target_id}_{time.time()}' 
-                        # Use the existing job_statuses dict for tracking these triggered promos
-                        job_statuses[promo_job_id] = {'status': 'pending', 'message': f'Monitor trigger for {target_username} ({promo_profile_name})'} 
-                        scheduler.add_job(
-                            id=promo_job_id,
-                            func=automation_runner.run_automation_profile,
-                            trigger='date', # Run immediately
-                            args=[promo_profile_name, promo_settings, latest_post_url, promo_job_id, update_job_status, save_history_entry_callback, requested_stops],
-                            misfire_grace_time=None
-                        )
-                        print(f"[Global Check] Scheduled promotion job {promo_job_id} for post {latest_post_url}")
-                        # Successfully scheduled, update last pushed URL in the target config
-                        target['last_pushed_post_url'] = latest_post_url
-                        # config_needs_saving is already True
-                    except Exception as e:
-                        print(f"[Global Check] *** Error scheduling promotion job for {latest_post_url} (Target: '{target_username}'): {e} ***")
-                        traceback.print_exc()
-                        # Don't update last_pushed_url if scheduling failed, maybe retry next time?
-                else:
-                    print(f"[Global Check] Post for '{target_username}' is older than {DEFAULT_POST_AGE_LIMIT_HOURS} hour(s). Skipping promotion.")
-                    # Update last pushed URL so we don't re-check this old post
-                    target['last_pushed_post_url'] = latest_post_url
-                    # config_needs_saving is already True
-        # End of if should_check
-    # End of loop through targets
-
-    # Save config changes if any timestamps or pushed URLs were updated
-    if config_needs_saving:
-        print(f"[Global Check] Saving updated monitoring config...")
-        instagram_monitor.save_monitoring_config(config_data)
-
-    print(f"--- Global Monitoring Check Finished ---")
-
-# --- Function to initialize the global monitoring scheduler job ---
-def initialize_monitoring_job():
-    print("Initializing global monitoring scheduler job...")
-    try:
-        # Remove old job if it exists from a previous run
-        try:
-            scheduler.remove_job(GLOBAL_MONITORING_CHECK_JOB_ID)
-            print(f"Removed existing global monitoring job '{GLOBAL_MONITORING_CHECK_JOB_ID}'.")
-        except JobLookupError:
-            pass # Job doesn't exist, which is fine
-
-        # Schedule the new global check job
-        scheduler.add_job(
-            id=GLOBAL_MONITORING_CHECK_JOB_ID,
-            func=run_global_monitoring_check,
-            trigger='interval',
-            seconds=SCHEDULE_INTERVAL_SECONDS, 
-            next_run_time=datetime.datetime.now() + datetime.timedelta(seconds=10) # Start first check soon
-        )
-        print(f"Scheduled global monitoring job '{GLOBAL_MONITORING_CHECK_JOB_ID}' to run every {SCHEDULE_INTERVAL_SECONDS} seconds.")
-    except Exception as e:
-        print(f"*** FATAL ERROR: Failed to schedule global monitoring job: {e} ***")
-        traceback.print_exc()
+        print(f"[API Test] Failed to get latest post info for {target_username} via instagram_monitor.")
+        return jsonify({"success": False, "error": f"Failed to get latest post info for {target_username} using the direct API method. Check server logs for details."})
 
 # --- Run Page: Manual Promotion Triggers --- 
 
@@ -620,12 +656,6 @@ def stop_profile_promo():
 
 # --- App Startup --- 
 if __name__ == '__main__':
-    # Initialize the global monitoring job AFTER the app starts and scheduler is running
-    with app.app_context():
-        initialize_monitoring_job()
-        
-    # Note: When running directly with flask run, Werkzeug reloader can cause scheduler issues.
-    # Use `flask run --no-reload` for development or use Waitress/Gunicorn for production.
-    # The run_waitress.bat script handles this.
-    print("Flask app started. Use run_waitress.bat or flask run --no-reload")
+    # Initialization call is now done earlier
+    print("Flask app started via __main__. Use run_waitress.bat or flask run --no-reload")
     # app.run(debug=False, host='0.0.0.0', port=5000) # Don't run directly like this with scheduler 

@@ -7,9 +7,9 @@
 {% block content %}
 <div class="container mt-4">
     <!-- ADD Status Text Here -->
-    <div id="status-text" class="status-initializing">Initializing...</div> 
+    <div id="status-text" class="status-initializing text-body">Initializing...</div> 
 
-    <h2>Run Promotions</h2>
+    <h2 id="page-title-promo">Run Promotions</h2>
 
     <!-- Username Display/Edit -->
     <!--
@@ -31,8 +31,9 @@
                 <div class="col-md-3">
                     <label for="platform-select" class="form-label">Platform</label>
                     <select id="platform-select" class="form-select">
-                        <option selected>Instagram</option>
+                        <!-- <option selected>Instagram</option> REMOVED default -->
                         <!-- Add other platforms later if needed -->
+                        <!-- Options populated by JS -->
                     </select>
                 </div>
                 <div class="col-md-3">
@@ -62,17 +63,17 @@
         <div class="card-body">
             <div class="row g-3 align-items-end">
                 <div class="col-md-4">
-                    <label for="profile-select" class="form-label">Select Profile</label>
-                    <select id="profile-select" class="form-select">
+                    <label for="profile-select-promo" class="form-label">Select Profile</label>
+                    <select id="profile-select-promo" class="form-select">
                         <!-- Options populated by JS -->
                 </select>
             </div>
-                <div class="col-md-6">
+                <div class="col-md-7">
                     <label for="profile-link-input" class="form-label">Link</label>
                     <input type="text" id="profile-link-input" class="form-control" placeholder="e.g., https://...">
                 </div>
-                <div class="col-md-2 d-flex align-items-end">
-                    <button id="start-profile-promo-btn" class="btn btn-success w-100">Run Profile</button>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button id="start-profile-promo-btn" class="btn btn-primary w-100">Run</button>
             </div>
              </div>
         </div>
