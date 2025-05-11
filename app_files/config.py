@@ -6,11 +6,9 @@ TARGET_WEBSITE_URL = "https://dogehype.com/" # Or the specific page for automati
 # --- Browser Profile Path --- 
 # Path to the Google Chrome User Data directory for persistent sessions
 # Find yours by typing chrome://version in your Chrome address bar
-CHROME_PROFILE_PATH = r"C:\Users\369\AppData\Local\Google\Chrome\User Data\YAPP"
 
 # Optional: Specify the path to your installed Chrome executable
 # Found via chrome://version -> Executable Path
-CHROME_EXECUTABLE_PATH = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
 
 # --- UI Options --- 
 PLATFORM_OPTIONS = ["Instagram", "TikTok", "YouTube", "X (Twitter)"]

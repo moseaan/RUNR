@@ -472,17 +472,16 @@ def run_single_automation(platform: str, engagement_type: str, link: str, quanti
     status_update_callback(job_id, 'running', f'Starting single promo for {engagement_type}...')
     success = False
     message = "Automation failed before execution."
-    browser = None # Initialize browser for finally block
-    context = None # Initialize context for finally block
+    browser = None 
+    context = None 
 
     try:
         with sync_playwright() as p:
-            print(f"Launching new browser instance (non-persistent) for single automation.")
-            print(f"Using Chrome Executable: {config.CHROME_EXECUTABLE_PATH}")
+            print(f"Launching new browser instance (headless, non-persistent) for single automation.")
             browser = p.chromium.launch(
-                headless=False, # Set to True if you don't need to see the browser
-                channel="chrome", 
-                executable_path=config.CHROME_EXECUTABLE_PATH
+                headless=True, 
+                channel="chrome"
+                # No executable_path needed, Playwright will use its own installed browser
             )
             context = browser.new_context()
             page = context.new_page()
@@ -553,8 +552,8 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
 
     success = False
     final_message = "Automation failed before execution."
-    browser = None       # Initialize browser for finally block
-    browser_context = None # Use context variable for clarity
+    browser = None       
+    browser_context = None 
     page = None
     total_engagements_run = 0
     main_loops = 1 
@@ -585,13 +584,12 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
                 status_update_callback(job_id, 'stopped', final_message)
                 return 
             
-            print(f"Launching new browser instance (non-persistent) for profile automation.")
-            print(f"Using Chrome Executable: {config.CHROME_EXECUTABLE_PATH}")
+            print(f"Launching new browser instance (headless, non-persistent) for profile automation.")
             browser = p.chromium.launch(
-                headless=False, # Set to True if you don't need to see the browser
-                slow_mo=50, # Keep slow_mo if needed, though less relevant without persistent state
-                channel="chrome",
-                executable_path=config.CHROME_EXECUTABLE_PATH
+                headless=True, 
+                slow_mo=50, # Can keep slow_mo if it helps stability, even headless
+                channel="chrome"
+                # No executable_path needed
             )
             browser_context = browser.new_context()
             page = browser_context.new_page()
@@ -766,24 +764,23 @@ def scrape_latest_post_with_playwright(username: str) -> Tuple[Optional[str], Op
     """
     profile_url = f"https://www.instagram.com/{username}/"
     post_url: Optional[str] = None
-    timestamp_utc: Optional[datetime.datetime] = None  # Placeholder, not implemented yet
+    timestamp_utc: Optional[datetime.datetime] = None  
 
-    print(f"[Playwright Scrape] Attempting to scrape: {profile_url} using a new (non-persistent) browser session.")
-    browser = None # Initialize browser for finally block
-    context: Optional[BrowserContext] = None # Define context here for finally block
-    page: Optional[Page] = None # Define page for finally block access
+    print(f"[Playwright Scrape] Attempting to scrape: {profile_url} using a new (headless, non-persistent) browser session.")
+    browser = None 
+    context: Optional[BrowserContext] = None 
+    page: Optional[Page] = None 
 
     try:
         with sync_playwright() as p:
-            print(f"[Playwright Scrape] Launching new browser instance (non-persistent).")
+            print(f"[Playwright Scrape] Launching new browser instance (headless, non-persistent).")
             browser = p.chromium.launch(
-                headless=True, # Keep headless for scraping if desired
-                channel="chrome",
-                executable_path=config.CHROME_EXECUTABLE_PATH,
-                # timeout=60000 # Timeout for launch, if needed
+                headless=True, 
+                channel="chrome"
+                # No executable_path needed
             )
             context = browser.new_context(
-                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36" # Using a common user agent
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36" 
             )
             page = context.new_page()
             
