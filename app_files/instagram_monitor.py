@@ -37,9 +37,6 @@ except ImportError:  # pragma: no cover
 
 # --- local ------------------------------------------------------------------
 import config  # noqa: F401  (import side‑effects elsewhere in the project)
-from config import CHROME_PROFILE_PATH  # absolute path to desired Chrome profile
-import sqlite3
-import shutil
 
 # ----------------------------------------------------------------------------
 log = logging.getLogger(__name__)
@@ -54,7 +51,7 @@ DEFAULT_POLLING_INTERVAL = 300  # 5 min
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "monitoring_config.json")
 
-SESSION_PATH = CHROME_PROFILE_PATH or os.path.join(SCRIPT_DIR, "dogehype_session")
+SESSION_PATH = os.path.join(SCRIPT_DIR, "dogehype_session")
 COOKIE_DB_PATH = os.path.join(SESSION_PATH, "Network", "Cookies")
 TEMP_COOKIE_PATH = os.path.join(SCRIPT_DIR, "temp_cookies.db")
 
