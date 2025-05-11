@@ -843,23 +843,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const selectedPlatform = platformSelect.value;
         const selectedEngagement = engagementSelect.value;
-        let minQty = 0; // Default to 0 if not found
+        let minQty = 1; // Default to 1 if not found or not applicable, ensuring it's at least 1.
 
         if (selectedPlatform && selectedEngagement && minimumQuantities) {
-            // Construct the key string format used in the backend: "('Platform', 'Engagement')"
-            // Avoid complex escaping in template literals
             const key = "('" + selectedPlatform + "', '" + selectedEngagement + "')";
-            minQty = minimumQuantities[key] || 1; // Default to 1 if not found
+            minQty = minimumQuantities[key] || 1; // Use 1 as a fallback if key not found
         }
 
         const placeholderText = minQty > 0 ? `Minimum: ${minQty}` : "Quantity";
         quantityInput.placeholder = placeholderText;
+        quantityInput.min = minQty; // <<< SET THE MIN ATTRIBUTE HERE
 
         // Optionally update the label text itself
         if (quantityLabel) {
             // quantityLabel.textContent = minQty > 0 ? `Quantity (Min: ${minQty}):` : "Quantity:"; // Example
         }
-        console.log(`Updated quantity placeholder for ${selectedPlatform}/${selectedEngagement}: "${placeholderText}" (Min: ${minQty})`);
+        console.log(`Updated quantity input for ${selectedPlatform}/${selectedEngagement}: Placeholder='${placeholderText}', Min Attribute='${minQty}'`);
     }
 
     // Refactored to use minimumQuantities cache
