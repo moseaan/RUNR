@@ -1,0 +1,92 @@
+{% extends 'base.html' %}
+
+{% block title %}RUNR - Manage Profiles{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <h2>Manage Profiles</h2>
+        
+        <!-- Status Area for Profile Page -->
+        <div id="profile-page-status-area" class="alert" role="alert" style="display: none;">
+            <span id="profile-page-status-message"></span>
+        </div>
+
+        <!-- Enable Username editing -->
+        <div class="form-group username-group">
+            <label for="username-display">Username:</label>
+            <input type="text" id="username-display" value="{{ username | default('DefaultUser') }}">
+            <button id="save-username-btn">Save Username</button>
+        </div>
+        <hr style="border-color: var(--border-color); margin: 20px 0;">
+
+        <div class="profile-management">
+             <h3>Promotion Profiles</h3>
+            <div class="profile-selection">
+                <label for="profile-select">Select Profile:</label>
+                <select id="profile-select" name="profiles">
+                    <option value="">-- Select --</option>
+                    <!-- Options added by JS -->
+                </select>
+                <button id="add-profile-btn">Add New</button>
+                <button id="edit-profile-btn" disabled>Edit Selected</button>
+                <button id="delete-profile-btn" disabled>Delete Selected</button>
+            </div>
+            <!-- Profile details could be displayed here upon selection -->
+        </div>
+    </div>
+
+    <!-- Profile Editor Modal MOVED here -->
+     <div id="profile-editor-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" id="close-modal-btn">&times;</span>
+            <h2 id="editor-title">Add/Edit Profile</h2>
+            <form id="profile-editor-form">
+                <input type="hidden" id="original-profile-name">
+
+                <div class="form-group">
+                    <label for="profile-name">Profile Name:</label>
+                    <input type="text" id="profile-name" required class="form-control">
+                </div>
+
+                <h3>Instagram Engagement Settings</h3>
+                <div class="engagement-header-row">
+                    <span>Engagement</span>
+                    <span>Fixed Qty</span>
+                    <span>Random?</span>
+                    <span>Min Qty</span>
+                    <span>Max Qty</span>
+                    <span>Loop(s)</span>
+                </div>
+                <div id="engagement-settings">
+                    <!-- Engagement rows added by JS -->
+                </div>
+
+                <h3>Loop Settings</h3>
+                <div class="loop-settings-section">
+                    <div class="form-group form-group-inline">
+                        <label for="loop-count">Loops:</label>
+                        <input type="number" id="loop-count" value="1" min="1" style="width: 80px;" class="form-control">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <label for="loop-delay">Delay:</label>
+                        <input type="number" id="loop-delay" value="0" min="0" step="any" title="Delay in seconds" class="form-control">
+                    </div>
+                    <div class="form-group form-group-inline">
+                        <input type="checkbox" id="use-random-delay" class="inline-cb form-check-input">
+                        <label for="use-random-delay" class="inline-label form-check-label">Random?</label>
+                        <label for="min-delay">Min:</label>
+                        <input type="number" id="min-delay" value="60" min="0" step="any" disabled title="Minimum delay in seconds" class="form-control">
+                        <label for="max-delay" class="inline-label">Max:</label>
+                        <input type="number" id="max-delay" value="300" min="0" step="any" disabled title="Maximum delay in seconds" class="form-control">
+                    </div>
+                 </div>
+
+                <div class="button-group">
+                    <button type="submit" id="save-profile-btn" class="btn btn-primary">Save Profile</button>
+                    <button type="button" id="cancel-modal-btn" class="btn btn-secondary">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+{% endblock %} 

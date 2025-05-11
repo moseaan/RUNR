@@ -1,1 +1,1 @@
-After making a change, test it in the browser at http://localhost:5000/ using the Autobrowser MCP. Assume the server is already running. 
+After making a change, test it in the browser at http://localhost:5000/ using the browserMCP. Assume the server is already running.

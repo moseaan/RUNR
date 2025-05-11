@@ -1,0 +1,1075 @@
+//TOP LEVEL VARIABLES
+const version = 1.2;
+var adWidth, adHeight, iaObject = {},
+    ids = {},
+    classes = {},
+    imgCount = 0,
+    imgLoaded = 0,
+    linesObject = {},
+    scrollGrabbed = false,
+    currentFrame = 0,
+    previousFrame = -1,
+    transition = false,
+    initFunctionsCalled = false,
+    tangiberryed = false, //Get the ball Rolling!
+    aac2Used="false",
+    twoFrame = "false",
+    firstRun=true,
+    aac2Delay=0;
+//160x600
+window.onload = function () {
+    //gsap.defaults({ overwrite: true });
+
+    document.body.classList.add(checkPlatform()[0] + "-" + checkPlatform()[1]);
+    myFT.on("richload", function () {
+        myFT.on("instantads", function () {
+            if (!initFunctionsCalled) {
+                initFunctionsCalled = true;
+                adWidth = myFT.manifestProperties.width;
+                adHeight = myFT.manifestProperties.height;
+                remapIAVars();
+                setInstantAds();
+            }
+        });
+    });
+}
+
+function remapIAVars() { //Current : old
+    var remap = {
+        "Copy1_txt": "Descriptor1_txt",
+        "Copy1_flex": "Descriptor1_flex",
+        "Copy2_txt": "Descriptor2_txt",
+        "Copy2_flex": "Descriptor2_flex",
+        "Copy3_txt": "Descriptor3_txt",
+        "Copy3_flex": "Descriptor3_flex",
+        "Copy4_txt": "Descriptor4_txt",
+        "Copy4_flex": "Descriptor4_flex",
+        "Embrace_transition": "Tangiberry_transition",
+        "PartnersLogo_img": "PartnerLogo_img",
+        "Devices_img": "Device_img",
+        "Offer_txt": "Offer_Layout"
+    }
+
+        //@mw fix for issue where a space is needed before <aac> tag in some cases
+    var iaVarString=JSON.stringify(myFT.instantAds);
+    iaVarString=iaVarString.split("<aac>").join(" <aac>")
+    var iaO = JSON.parse(iaVarString);
+    for (var n in remap)
+        if (myFT.instantAds[n] || myFT.instantAds[n] == "") {
+            iaO[remap[n]] = myFT.instantAds[n];
+        };
+    iaO.DisclaimerLink_txt = iaO.DisclaimerLink;
+    iaO.DisclaimerLink = iaO.DisclaimerLinkPopUp_txt
+    myFT.instantAds = JSON.parse(JSON.stringify(iaO));
+
+}
+//Determine platform and set body class to match system/Browser
+function checkPlatform() {
+    //function that applies system/browser specific classes to help stylize if necessary.
+    var a = [],
+        wnua = window.navigator.userAgent,
+        nua = navigator.userAgent,
+        np = navigator.platform,
+        nv = navigator.vendor;
+    var MSIE = wnua.indexOf("MSIE "),
+        Edge = wnua.indexOf("Edge/"),
+        Trdt = wnua.indexOf("Trident/");
+    if (np.toLowerCase().indexOf("mac") > -1) {
+        a[0] = "macOS";
+    } else if (np.toLowerCase().indexOf("win") > -1) {
+        a[0] = "windows";
+    } else {
+        if (nua.match(/IEMobile/i) || nua.match(/WPDesktop/i)) a[0] = "WindowsPhone";
+        if (nua.match(/BlackBerry/i)) a[0] = "BlackBerry";
+        if (nua.match(/Android/i)) a[0] = "android";
+        if (nua.match(/Opera Mini/i)) a[0] = "opera";
+        if (nua.match(/iPhone|iPad|iPod/i)) a[0] = "iOS";
+    }
+    if (nua.toLowerCase().indexOf("chrome") > -1) a[1] = "chrome";
+    if (nua.toLowerCase().indexOf("firefox") > -1) a[1] = "firefox";
+    if (nv && nv.toLowerCase().indexOf("apple") > -1) a[1] = "safari";
+    if (MSIE > 0 || Edge > 0 || Trdt > 0) a[1] = "IE";
+    return a;
+}
+function convertHex(hexCode, opacity = 1){
+    var hex = hexCode.replace('#', '');
+
+    if (hex.length === 3) {
+        hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    }
+
+    var r = parseInt(hex.substring(0,2), 16),
+        g = parseInt(hex.substring(2,4), 16),
+        b = parseInt(hex.substring(4,6), 16);
+
+    /* Backward compatibility for whole number based opacity values. */
+    if (opacity > 1 && opacity <= 100) {
+        opacity = opacity / 100;   
+    }
+    
+    return 'rgba('+r+','+g+','+b+','+opacity+')';
+}
+
+//Function that grabs classes or IDs and sets them to objects for easy identification.
+function scrubElements(t) {
+    var myObject = {};
+    var els = document.querySelectorAll("[" + t + "]");
+    if (t != "class") {
+        for (var i = 0; i < els.length; i++) myObject[els[i].id] = els[i];
+    } else {
+        for (var i = 0; i < els.length; i++) {
+            for (var c = 0; c < els[i].classList; c++) myObject[els[i].classList[c]] = els[i];
+        }
+    }
+    //trace('myObject-------')
+    //trace(myObject)
+    return myObject
+}
+//Process IA Var elements into iaObject and reference macros to replace values
+//[#iaVar#] will replace with the value,
+//[U#...#] makes value uppercase
+//[C#...#] makes value capital case
+//[L#...#] makes value lower case.
+
+function setInstantAds() {
+    //Set some defaults.
+    if (iaObject.AnimateLines == "") iaObject.AnimateLines = "all";
+    //sets iaObject to match myFT.instantAds, and scrubs/replaces macros with values where applied.
+    function capitalize(s) {
+        var sa = s.split(" ");
+        for (var i = 0; i < sa.length; i++) {
+            sa[i] = sa[i].substr(0, 1).toUpperCase() + sa[i].substr(1, sa[i].length)
+        }
+        return sa.join(" ");
+    }
+
+    iaObject = JSON.parse(JSON.stringify(myFT.instantAds));
+
+    if (JSON.stringify(myFT.instantAds).indexOf("<aac2>") > -1) {
+        aac2Used = "true";        
+    }
+
+    var macroHit = true;
+    while (macroHit) {
+        macroHit = false;
+        for (var n in iaObject) {
+            for (var s in iaObject) {
+                if (s != n) {
+                    if (iaObject[n].indexOf("[#" + s + "#]") > -1) {
+                        macroHit = true;
+                        iaObject[n] = iaObject[n].split("[#" + s + "#]").join(iaObject[s]);
+                    }
+                    if (iaObject[n].indexOf("[U#" + s + "#]") > -1) {
+                        macroHit = true;
+                        iaObject[n] = iaObject[n].split("[U#" + s + "#]").join(iaObject[s].toUpperCase());
+                    }
+                    if (iaObject[n].indexOf("[L#" + s + "#]") > -1) {
+                        macroHit = true;
+                        iaObject[n] = iaObject[n].split("[L#" + s + "#]").join(iaObject[s].toLowerCase());
+                    }
+                    if (iaObject[n].indexOf("[C#" + s + "#]") > -1) {
+                        macroHit = true;
+                        iaObject[n] = iaObject[n].split("[C#" + s + "#]").join(capitalize(iaObject[s]));
+                    }
+                }
+            }
+        }
+        //trace('iaObject-------')
+        // trace(iaObject)
+    }
+    document.head.appendChild(document.createElement("style")).innerHTML = iaObject.Insert_CSS;
+
+    // Checking if FrameCount_toggle contaions 'twoFrame" string. If it does, set value of twoFrame variable to true
+    // This is the variable used to modify layout,animation and styling for 2 frame
+    if(iaObject.FrameCount_toggle.search(/,\s*t\s*w\s*o\s*f\s*r\s*a\s*m\s*e\s*/gi,)>-1 || iaObject.FrameCount_toggle.search(/t\s*w\s*o\s*f\s*r\s*a\s*m\s*e\s*,\s*/gi)>-1){
+        twoFrame="true";
+        iaObject.FrameCount_toggle = iaObject.FrameCount_toggle.replaceAll(/,\s*t\s*w\s*o\s*f\s*r\s*a\s*m\s*e\s*/gi, "");
+        iaObject.FrameCount_toggle = iaObject.FrameCount_toggle.replaceAll(/t\s*w\s*o\s*f\s*r\s*a\s*m\s*e\s*,\s*/gi, "");        
+        
+
+        //Move background1_img to block2 for 2 frame endframe
+        
+        var parentEl=document.querySelector("#block2_images");
+        var newElement=document.querySelector("#Background1_img");
+        
+        parentEl.insertBefore(newElement, parentEl.childNodes[2]);
+    }
+
+    setTimeout(function () {
+        buildHTML();
+    }, 1000);
+}
+
+//Set element values in HTML (mostly setting innerHTML of text elements, img srcs, then a ton of pre-animation setting.)
+function buildHTML() {
+
+
+    // for(var i = 0;i<iaObject.FrameCount_toggle.split(',').length){
+
+    //     //iaObject.FrameCount_toggle).split(',')
+    // }
+    //Border and ad size.
+    ids = scrubElements("id"), classes = scrubElements("classes");
+    ids.main.style.border = "1px solid black";
+    ids.main.style.width = (adWidth) + "px";
+    ids.main.style.height = (adHeight) + "px";
+    ids.main.style.boxSizing = "border-box";
+    ids.main.style.opacity = 0;
+    //Setting image sources and listeners for pre-loading.
+    for (var i in ids) {
+        if (ids[i].nodeName == "IMG" && iaObject[ids[i].id]) {
+            ids[i].addEventListener("load", imageLoaded);
+            //trace(ids[i].id+" "+iaObject[ids[i].id])
+            ids[i].src = iaObject[ids[i].id], imgCount++;
+        } else if (iaObject[ids[i].id]) {
+            //special case for CTA because of nesting
+            if (ids[i].id == "CTAcopy_txt") {
+                var to = document.createElement("div");
+                to.setAttribute("id", "CTA_txt");
+                to.innerHTML = iaObject[ids[i].id];
+                document.head.appendChild(document.createElement("style")).innerHTML = "#CTAcopy_txt { background-image: url('" + (myFT.instantAds.CTA_img || "blank.png") + "'); background-size: 100%;}";
+                ids[i].appendChild(to);
+            } else {
+                ids[i].innerHTML = iaObject[ids[i].id];
+            }
+        }
+        //Flex stylings size|color|w,h  - blank values will inherit native CSS stylings.
+        if (iaObject[ids[i].id.split("_")[0] + "_flex"]) {
+            var flexVar = iaObject[ids[i].id.split("_")[0] + "_flex"].split(" ").join("").split("|");
+            if (flexVar.length > 0) {
+
+                if (flexVar[2] && flexVar[2] != "") {
+                    ids[i].style.position = "absolute";
+                    ids[i].style.top = flexVar[2].split(",")[1] + "px";
+                    ids[i].style.left = flexVar[2].split(",")[0] + "px";
+                }
+                if (flexVar[0] != "") {
+                    ids[i].style.fontSize = flexVar[0] + (flexVar[0] > 5 ? "px" : "em");
+                }
+                if (flexVar[1] && flexVar[1] != "") {
+                    ids[i].style.color = flexVar[1];
+                }
+            }
+            if (flexVar.length > 3) {
+                for (var s = 3; s < flexVar.length; s++)
+                    if (flexVar[s].indexOf(":") > -1) ids[i].style[flexVar[s].split(":")[0]] = flexVar[s].split(":")[1];
+            }
+        }
+    }
+    //Wrap words for text objects defined via F1 copy set 1/2 and F2 Copy set 1/2
+    for (var i = 1; i < 5; i++) {
+        wordWrap([ids["Eyebrow" + i + "_txt"], ids["Headline" + i + "_txt"], ids["Descriptor" + i + "_txt"]], "Group" + i);
+    }
+
+    //Non-Strict IA Var stylings//
+    ids.Secondary_img.style.transform = "scale(2)";
+    ids.Secondary_img.style.transformOrigin = "50% 50%";
+    ids.Secondary_img.style.opacity = 0;
+    //Chat bubbles and text start in their defined positions with opacity of 0.
+    ids.ChatBubble1_img.style.opacity = ids.ChatBubble2_img.style.opacity = ids.ChatBubble3_img.style.opacity = 0;
+    ids.Text1_txt.style.opacity = ids.Text2_txt.style.opacity = ids.Text3_txt.style.opacity = 0;
+    ids.Text1_txt.style.position = ids.Text2_txt.style.position = ids.Text3_txt.style.position = "absolute";
+    iaObject.Texts_flex = iaObject.Texts_flex == "" ? "0,0|0,0|0,0" : iaObject.Texts_flex;
+    //ids.Text1_txt.style.left=iaObject.Texts_flex.split("|")[0].split(",")[0];
+    //ids.Text1_txt.style.top=iaObject.Texts_flex.split("|")[0].split(",")[1];
+    //ids.Text2_txt.style.left=iaObject.Texts_flex.split("|")[1].split(",")[0];
+    //ids.Text2_txt.style.top=iaObject.Texts_flex.split("|")[1].split(",")[1];
+    //ids.Text3_txt.style.left=iaObject.Texts_flex.split("|")[2].split(",")[0];
+    //ids.Text3_txt.style.top=iaObject.Texts_flex.split("|")[2].split(",")[1];
+    //Tangiberry Transition presetting.
+    ids.transitionBlock.style.position = "absolute";
+    ids.transitionBlock.style.top = "0px", ids.transitionBlock.style.left = "0px"
+    ids.transitionBlock.style.height = adHeight + "px", ids.transitionBlock.style.width = 3 * adWidth + "px";
+    ids.StockIP_img.style.transform = "scale(1)", ids.StockIP_img.style.left = -.5 * adWidth + "px", ids.StockIP_img.style.top = -.5 * adHeight + "px"
+    ids.transitionBlock.style.backgroundImage = "linear-gradient(to right,#0000 0%,#0000 10%," + iaObject.Tangiberry_transition.split("|")[0].split(",")[0] + " 20%," + iaObject.Tangiberry_transition.split("|")[0].split(",")[1] + " 85%,#0000 90%,#0000 100%)";
+    ids.transitionBlock.style.left = -3 * adWidth + "px";
+    //Setting some styles to position absolute / xy=0 -> this may be superfluous with certain CSS rules.
+    ids.block1_images.style.position = ids.f1_copy.style.position = f2_copy.style.position = "absolute";
+    ids.block1_images.style.top = ids.f1_copy.style.top = f2_copy.style.top = "0px";
+    ids.block1_images.style.left = ids.f1_copy.style.left = f2_copy.style.left = "0px";
+    ids.block2_images.style.position = ids.f3_copy.style.position = f4_copy.style.position = "absolute";
+    ids.block2_images.style.top = ids.f3_copy.style.top = f4_copy.style.top = "0px";
+    ids.block2_images.style.left = ids.f3_copy.style.left = f4_copy.style.left = "0px";
+    //After tangiberry transition colors |false determines if phone should be present or offstage during wipe.
+    if ((iaObject.Tangiberry_transition.split("|")[1] || "false") && iaObject.Tangiberry_transition.split("|")[1] == "false") {
+        ids.Device_img.style.marginLeft = adWidth + "px";
+    }
+    ids.block1.style.overflow = ids.block2.style.overflow = "hidden";
+    ids.CTAcopy_txt.style.opacity = 0;
+
+    //Price Layouts:
+    if (iaObject.PricePoint_flex != "") {
+        var op = iaObject.PricePoint_flex.split("|");
+        var p1 = (iaObject.PricePoint_flex.split("|")[0] != "") ? iaObject.PricePoint_flex.split("|")[0] + "px" : "40px";
+        var p2 = (iaObject.PricePoint_flex.split("|")[1] != "") ? iaObject.PricePoint_flex.split("|")[1] : "";
+        var p3 = iaObject.PricePoint_flex.split("|")[2]
+    } else {
+        var p1 = "40px";
+        var p2, p3 = "";
+    }
+
+    if (iaObject.PricePoint_txt.indexOf("<u>") > -1) {
+        createTextBlock(ids.f4_copy, iaObject.PriceEyebrow_txt, "", "PriceEyebrow_txt", "descriptor");
+        var pb = document.createElement("div");
+        var pbc = document.createElement("div");
+        pb.setAttribute("id", "pricetxt_cont");
+        pb.setAttribute("class", "rows")
+        pbc.setAttribute("id", "pricetxt_columncont");
+        createTextBlock(pb, iaObject.PricePoint_txt.substr(0, iaObject.PricePoint_txt.indexOf("<u>")).replace("$", "<sup>$</sup>"), p1 + "|" + p2, "PricePoint_txt", "priceheadline");
+        createTextBlock(pbc, "mo", "0.9em|" + iaObject.Tangiberry_transition.split("|")[0].split(",")[1], "month_txt", "priceheadline");
+        createTextBlock(pbc, iaObject.PriceDisclaimer_txt, "0.5em|", "price_disclaimer_txt", "pricedescription");
+        pb.appendChild(pbc);
+        ids.f4_copy.appendChild(pb);
+        document.head.appendChild(document.createElement("style")).innerHTML = "#month_txt {text-decoration-color:" + iaObject.Tangiberry_transition.split("|")[0].split(",")[1] + ";}"
+    } else {
+        createTextBlock(ids.f4_copy, iaObject.PriceEyebrow_txt, "", "PriceEyebrow_txt", "descriptor");
+        var pb = document.createElement("div");
+        pb.setAttribute("id", "pricetxt_cont");
+        pb.setAttribute("class", "columns")
+        ids.f4_copy.appendChild(pb);
+        createTextBlock(pb, iaObject.PricePoint_txt.replace("$", "<sup>$</sup>"), p1 + "|" + p2, "pricetxt_cont", "priceheadline");
+        createTextBlock(pb, iaObject.PriceDisclaimer_txt, "0.5em|", "price_disclaimer_txt", "pricedescription");
+    }
+    document.getElementById("PriceEyebrow_txt").style.marginLeft = -adWidth + "px";
+    document.getElementById("PriceEyebrow_txt").style.opacity = 0;
+
+    //var pb = document.getElementById("pricetxt_cont")
+    pb.style.opacity = 0
+    // @mw --commenting follwing line of code for mob dco since we are using PriceDisclaimer_txt for bottom disclaimer
+    // Commening out the code allows text to fade in place and removes sliding
+    //pb.style.marginLeft = -(adWidth * 2) + "px";
+
+    if (p3 != "") {
+        pb.style.position = "absolute";
+        pb.style.top = p3.split(",")[1] + "px";
+        pb.style.left = p3.split(",")[0] + "px";
+    }
+
+    //Adjust width if no device:
+    if (iaObject.Device_img.indexOf("blank.") > -1) {
+        ids.Eyebrow3_txt.classList.add("wideHeadline");
+        ids.Headline3_txt.classList.add("wideHeadline");
+        ids.Descriptor3_txt.classList.add("wideHeadline");
+        ids.Eyebrow4_txt.classList.add("wideHeadline");
+        ids.Headline4_txt.classList.add("wideHeadline");
+        ids.Descriptor4_txt.classList.add("wideHeadline");
+        document.getElementById("PriceEyebrow_txt").classList.add("wideHeadline");
+    }
+
+    //Add arrow to disclaimer
+    var dt = document.getElementById("DisclaimerLink_txt");
+    dt.innerHTML += "<img src='images/arrow.svg' id='dt_arrow'/>"
+    setShine(0);
+    var pb = document.getElementById("pricetxt_cont");
+    var pbp = pb.parentElement.insertBefore(document.createElement("div"), pb);
+    pbp.id = "Price_Box_Parent";
+    pbp.appendChild(document.getElementById("PriceEyebrow_txt"));
+    pbp.appendChild(pb);
+    pbp.style.opacity = 0;
+    if (iaObject.Offer_txt_frames_box.split("|").length > 1) {
+        pbp.style.position = "absolute";
+        pbp.style.left = (iaObject.Offer_txt_frames_box.split("|")[1] || "").split(",")[0] + "px";
+        pbp.style.top = (iaObject.Offer_txt_frames_box.split("|")[1] || "").split(",")[1] + "px";
+        pbp.style.width = (iaObject.Offer_txt_frames_box.split("|")[1] || "").split(",")[2] + "px";
+        pbp.style.height = (iaObject.Offer_txt_frames_box.split("|")[1] || "").split(",")[3] + "px";
+    }
+    addInteractions();
+}
+
+function createTextBlock(target, str, prop, idName, className) {
+    var to = document.createElement("div");
+    var pa = prop.split("|")
+    to.setAttribute("id", idName);
+    to.setAttribute("class", className);
+    if (pa[0] != "") to.style.fontSize = pa[0];
+    if (pa[1] != "") to.style.color = pa[1];
+    to.innerHTML = str;
+    target.appendChild(to);
+    to.style.opacity = 1;
+}
+
+//Function that wraps line-by line animation in "word" classes.
+function wordWrap(els, groupClass) {
+	groupClass = groupClass || "group1";
+
+	for (var ei = 0; ei < (els.length || 1); ei++) {
+		var e = els[ei] || els;
+
+		for (var i = 0; i < e.childNodes.length; i++) {
+			var child = e.childNodes[i];
+
+			if (child.nodeType === 3) { // Text node
+				var combinedText = child.textContent; // Start with the text content of the node
+
+				// Check if the next sibling is a <sup> tag
+				var nextSibling = child.nextSibling;
+				if (nextSibling && nextSibling.nodeType === 1 && nextSibling.nodeName === "SUP") {
+						combinedText += nextSibling.outerHTML; // Append the <sup> tag's HTML
+						e.removeChild(nextSibling); // Remove the <sup> tag from the DOM
+				}
+
+				// Wrap the combined text in a single <span>
+				var span = document.createElement("span");
+				span.className = `word line0 ${groupClass}`;
+				span.setAttribute("data-group", groupClass);
+				span.style.opacity = "1";
+				span.style.marginLeft = "0px";
+				span.innerHTML = combinedText;
+
+				e.insertBefore(span, child); // Insert the new <span> before the text node
+				e.removeChild(child); // Remove the original text node
+			} else if (child.nodeType === 1 && child.nodeName !== "SUP") {
+				// Recursively process other element nodes, excluding <sup>
+				wordWrap([child], groupClass);
+			}
+		}
+		// Ensure proper formatting for special tags
+		e.innerHTML = e.innerHTML.split("</span><aac>").join("</span> <aac>").split("</aac><span>").join("</aac> <span>");
+	}
+}
+
+/* 
+function wordWrap(els, groupClass) {
+    groupClass = groupClass || "group1";
+    for (var ei = 0; ei < (els.length || 1); ei++) {
+        var e = els[ei] || els;
+        for (var i = 0; i < e.childNodes.length; i++) {
+            if (e.childNodes[i].nodeType == 3) {
+                var sString = e.childNodes[i].textContent.toString(),
+                    fString = [];
+                sString = sString.split(" ");
+                //trace('sString-------')
+                //trace(sString)
+                for (var j = 0; j < sString.length; j++) fString.push("<span class='word' data-group='" + groupClass + "'>" + sString[j] + "</span>");
+                var temp = e.childNodes[i];
+                fString = fString.join(" ");
+                e.insertBefore(document.createElement("span"), e.childNodes[i]).innerHTML = fString, e.removeChild(temp);
+            } else {
+                wordWrap(e.childNodes[i], groupClass)
+            }
+        }
+        e.innerHTML = e.innerHTML.split("</span><aac>").join("</span> <aac>").split("</aac><span>").join("</aac> <span>");
+
+    }
+}
+*/
+//Function that sets line and grouping classes based on words sent.
+function setLines(w) {
+    //uTs = unique tops / lines= line object to be passed back
+    var uTs = {},
+        lines = {};
+    //Aggregate a listing of unique tops per group.
+    for (var i = 0; i < w.length; i++) {
+        uTs[w[i].getAttribute("data-group")] = uTs[w[i].getAttribute("data-group")] || [];
+        if (uTs[w[i].getAttribute("data-group")].indexOf(w[i].getBoundingClientRect().top) == -1) {
+            uTs[w[i].getAttribute("data-group")].push(w[i].getBoundingClientRect().top);
+        }
+    }
+    //Determine line numbers based on unique Tops;
+    //trace(uTs)
+    for (var n in uTs) {
+        uTs[n].sort(function c(a, b) {
+            return (a > b ? 1 : a == b ? 0 : -1)
+        });
+        for (var i = 0; i < uTs[n].length; i++) {
+            for (var wi = 0; wi < w.length; wi++) {
+                if (w[wi].getBoundingClientRect().top == uTs[n][i] && w[wi].getAttribute("data-group") == n) {
+                    w[wi].classList.add("line" + uTs[n].indexOf(w[wi].getBoundingClientRect().top));
+                    w[wi].setAttribute("data-line", "line" + uTs[n].indexOf(w[wi].getBoundingClientRect().top));
+                    w[wi].classList.add(w[wi].getAttribute("data-group"))
+                }
+            }
+        }
+        var gws = document.getElementsByClassName(n);
+        //set groups within the lines object.
+        lines[n] = lines[n] || {};
+        // define lines in each group of the lines object.
+        for (var i = 0; i < gws.length; i++) {
+            lines[n][gws[i].getAttribute("data-line")] = lines[n][gws[i].getAttribute("data-line")] || {};
+            lines[n][gws[i].getAttribute("data-line")].words = lines[n][gws[i].getAttribute("data-line")].words || [];
+            lines[n][gws[i].getAttribute("data-line")].words.push(gws[i]);
+        }
+        for (l in lines[n]) {
+            lines[n][l].lastWord = lines[n][l].words[lines[n][l].words.length - 1];
+            lines[n][l].firstWord = lines[n][l].words[0];
+            lines[n][l].lineLength = lines[n][l].lastWord.offsetLeft - lines[n][l].lastWord.offsetLeft + lines[n][l].lastWord.offsetLeft;
+            var temp = "";
+            for (var i = 0; i < lines[n][l].words.length; i++) temp += lines[n][l].words[i].innerHTML;
+            lines[n][l].content = temp;
+        }
+
+    }
+    //trace(lines)
+    //trace(lines);
+    for (var g in lines)
+        for (var n in lines[g]) gsap.to(lines[g][n].words, 0, {
+            opacity: 0
+        });
+    return lines
+}
+//Function that sets CSS styles in head to cause animation of the headline (OR tangiberry styling of headline) words.
+function setShine(num) {
+    var animDelay=0;
+    if(num==4)var animDelay=0;
+    var c1 = iaObject.Tangiberry_transition.split("|")[0].split(",")[0];
+    var c2 = iaObject.Tangiberry_transition.split("|")[0].split(",")[1];
+    var name = name || "shine" + num,
+        acolors = ["#FFF", c1, c2, "#FFF"],
+        colors = [c1, c2];
+    for (var i = 0; i < acolors.length; i++) acolors[i] = acolors[i] + " " + 100 / (acolors.length + 1) * (i + 1) + "%";
+    for (var i = 0; i < colors.length; i++) colors[i] = colors[i] + " " + 100 / (colors.length - 1) * i + "%";
+    
+    document.head.appendChild(document.createElement("style")).innerHTML = "ac" + "{background: linear-gradient(to right, " + colors.join(",") + ");background-size: 100% auto;color: #fff0;background-clip: text;text-fill-color: #fff0;-webkit-background-clip: text;-webkit-text-fill-color: #fff0;}";
+    
+    var c1_rgba_1=convertHex(c1, 1);
+    var c1_rgba_0=convertHex(c1, 0);
+
+    if(aac2Used=="true"){
+
+        document.head.appendChild(document.createElement("style")).innerHTML = "#f" + num + "_copy aac" + "{background: linear-gradient(to right, " + acolors.join(",") + ");background-size: 470% auto;color: "+c1+";background-clip: text;color:"+c1_rgba_0+";-webkit-background-clip: text;animation: a" + name+"_onoff" + " 4s linear 1;animation-delay:"+animDelay+"s;animation-iteration-count: 1; animation-fill-mode: forwards;} @keyframes a" + name+"_onoff" + "{0% {color:"+c1_rgba_0+";background-position: 0% center} 20%{color:"+c1_rgba_0+";background-position: -75% center} 20.0000001%{color:"+c1+";background-position: -75% center}80%{color:"+c1+";background-position: -75% center}100%{background-position: -75% center;color:"+c1+";background:none rgba(255,255,255,0);color:rgba(255,255,255,1)} 100%{background-position: -75% center;color:"+c1+";background:none rgba(255,255,255,0);color:rgba(255,255,255,1)}}";
+
+
+
+    }else{
+        document.head.appendChild(document.createElement("style")).innerHTML = "#f" + num + "_copy aac" + "{background: linear-gradient(to right, " + acolors.join(",") + ");background-size: 470% auto;color: #fff0;background-clip: text;text-fill-color: #fff0;-webkit-background-clip: text;color: #fff0; animation: a" + name+"_on" + " .5s linear 1;animation-delay:"+animDelay+"s;animation-iteration-count: 1; animation-fill-mode: forwards;} @keyframes a" + name+"_on" + " {to {background-position: -75% center;}}";
+    }
+    document.head.appendChild(document.createElement("style")).innerHTML = "#f" + num + "_copy aac2" + "{background: linear-gradient(to right, " + acolors.join(",") + ");background-size: 470% auto;color: #fff0;background-clip: text;text-fill-color: #fff0;-webkit-background-clip: text;color: #fff0; animation: a" + name+"_2on" + " .5s linear 1;animation-delay:"+(animDelay+4)+"s;animation-iteration-count: 1; animation-fill-mode: forwards;} @keyframes a" + name+"_2on" + " {to {background-position: -75% center;}}";
+
+    //document.head.appendChild(document.createElement("style")).innerHTML = "#f" + num + "_copy aac2" + "{background: linear-gradient(to right, " + acolors.join(",") + ");background-size: 470% auto;color: #fff0;background-clip: text;text-fill-color: #fff0;-webkit-background-clip: text;-webkit-text-fill-color: #fff0; animation: a" + name + " .5s linear 1;animation-delay:"+animDelay+3.5+"s;animation-iteration-count: 1; animation-fill-mode: forwards;} @keyframes a" + name + " {to {background-position: -75% center;}}";    
+}
+
+//Add various interactions for click, drag, release, back etc.
+function addInteractions() {
+    document.body.addEventListener("click", callMainClick, false);
+    ids.main.addEventListener("mouseenter", callMouseOver, true);
+    ids.DisclaimerLink_txt.addEventListener("click", callDisclaimerClick, false);
+    //ids.Disclaimer_wrapper.addEventListener("click",callBlockClick,false);
+    //ids.DisclaimerLink.addEventListener("click",callBlockClick,false);
+    ids.back_btn.addEventListener("click", callBackClick, false);
+    ids.scrollGrab.addEventListener("mousedown", callGrab, false);
+    window.addEventListener("mouseup", callRelease, false);
+    window.addEventListener("click", callBlockClick, false);
+    window.addEventListener("mousemove", callScroll, false);
+    setInterval(function () {
+        watchDisclaimer()
+    }, 30);
+}
+
+//Corresponding interaction functions
+function callMainClick(e) {
+    if (!noClick) myFT.clickTag(1, (iaObject.clickTag1_url || iaObject.Click_URL));
+}
+
+var moving = false;
+
+function callMouseOver(e) {
+    //CTA SHINE needs to go here.
+    if (moving || e.target.id != "main") return;
+    ids.inner_shine.style.marginLeft = "0%"
+    //ids.inner_shine.style.left="0px";
+    moving = true;
+    ids.inner_shine.style.transitionDuration = "1s";
+    setTimeout(function () {
+        ids.inner_shine.style.marginLeft = "200%"
+    }, 10);
+    setTimeout(function () {
+        ids.inner_shine.style.transitionDuration = "0s";
+        setTimeout(function () {
+            moving = false;
+            ids.inner_shine.style.marginLeft = "0%"
+        }, 10);
+    }, 1000)
+}
+
+function callDisclaimerClick(e) {
+    //trace("WORKING");
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    if (iaObject.DisclaimerLink.indexOf("http") == 0) {
+        myFT.clickTag(2, iaObject.disclaimerLink);
+    } else {
+        ids.Disclaimer_wrapper.style.display = "block";
+        ids.Disclaimer_wrapper.style.width = adWidth + "px";
+        ids.Disclaimer_wrapper.style.height = adHeight + "px";
+        ids.Disclaimer_wrapper.style.left = "0px";
+        ids.Disclaimer_wrapper.style.width = "100%!important";
+        ids.Disclaimer_wrapper.style.backgroundColor = "#0000";
+        var innerDiv = ids.Disclaimer_wrapper.getElementsByTagName("div")[0];
+        innerDiv.style.width = adWidth * 1 + "px";
+        innerDiv.style.height = adHeight + "px";
+//        document.head.appendChild(document.createElement("style")).innerHTML = "#Disclaimer_wrapper{width:100%!important}#DisclaimerLink::-webkit-scrollbar{display:none;}";
+    }
+    if (ids.DisclaimerLink.scrollHeight <= ids.DisclaimerLink.offsetHeight) ids.scrollBar.style.display = "none";
+    ids.Disclaimer_wrapper.addEventListener("click", function (e) {
+        callBackClick(e)
+    }, false);
+}
+
+function callBackClick(e) {
+    if (!scrollGrabbed) {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        ids.Disclaimer_wrapper.style.display = "none";
+    }
+}
+
+function callBlockClick(e) {
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    //ids.Disclaimer_wrapper.style.display="none";
+}
+
+function callGrab(e) {
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    scrollGrabbed = true;
+}
+var noClick = false;
+
+function callRelease(e) {
+    if (myFT.$(ids.Disclaimer_wrapper).css("display") == "block") {
+        e.stopImmediatePropagation();
+        e.preventDefault();
+        noClick = true;
+    }
+
+    setTimeout(function () {
+        scrollGrabbed = noClick = false;
+    }, 10);
+}
+
+function callScroll(e) {
+    e.stopImmediatePropagation();
+    e.preventDefault();
+    if (scrollGrabbed) {
+        e = e || window.event, yPos = e.clientY;
+        ids.scrollGrab.style.top = e.clientY - ids.scrollGrab.offsetHeight / 2 + "px";
+        if (ids.scrollGrab.offsetTop < ids.scrollBG.offsetTop) ids.scrollGrab.style.top = ids.scrollBG.offsetTop + "px";
+        if (ids.scrollGrab.offsetTop + ids.scrollGrab.offsetHeight > ids.scrollBG.offsetTop + ids.scrollBG.offsetHeight) {
+            ids.scrollGrab.style.top = (ids.scrollBG.offsetTop + ids.scrollBG.offsetHeight - ids.scrollGrab.offsetHeight) + "px";
+        }
+        var tScrollAmount = ids.DisclaimerLink.scrollHeight - ids.DisclaimerLink.clientHeight;
+        var hScrollAmount = ids.scrollBG.offsetHeight - ids.scrollGrab.offsetHeight;
+        var hScrollValue = ids.scrollGrab.offsetTop - ids.scrollBG.offsetTop;
+        ids.DisclaimerLink.scrollTop = tScrollAmount * hScrollValue / hScrollAmount;
+    }
+}
+
+function watchDisclaimer() {
+    if (!scrollGrabbed) {
+        var scrollPercent = ids.DisclaimerLink.scrollTop / (ids.DisclaimerLink.scrollHeight - ids.DisclaimerLink.clientHeight);
+        ids.scrollGrab.style.top = (scrollPercent * (ids.scrollBG.offsetHeight - ids.scrollGrab.offsetHeight) + ids.scrollBG.offsetTop) + "px";
+    }
+}
+
+//Preload images.
+function imageLoaded() {
+    imgLoaded++;
+    if (imgLoaded == imgCount) {
+        //When images are loaded - set the lines based on word/offesTop positioning
+        linesObject = setLines(document.getElementsByClassName("word"));
+        for (var g in linesObject) {
+            for (var l in linesObject[g]) {
+                linesObject[g][l].firstWord.style.marginLeft = -adWidth + "px";
+                // linesObject[g][l].lastWord.innerHTML += "<br>";
+            }
+            linesObject[g][l].lastWord.innerHTML = linesObject[g][l].lastWord.innerHTML.split("<br>").join("");
+        }
+        for (var i = 1; i < 5; i++) {
+            removeBreaks([ids["Eyebrow" + i + "_txt"], ids["Headline" + i + "_txt"], ids["Descriptor" + i + "_txt"]], "Group" + i);
+            removeAAC([ids["Eyebrow" + i + "_txt"], ids["Headline" + i + "_txt"], ids["Descriptor" + i + "_txt"]], "Group" + i);
+        }
+        linesObject = setLines(document.getElementsByClassName("word"));
+        var imgs = document.getElementsByTagName("img");
+        for (var i = 0; i < imgs.length; i++) {
+            if (imgs[i].id != "StockIP_img") {
+                if (imgs[i].naturalWidth == adWidth * 2) imgs[i].style.width = adWidth + "px";
+                if (imgs[i].naturalHeight == adHeight * 2) imgs[i].style.width = adWidth + "px";
+            }
+        }
+        /*
+        For endframe only versions(no intro animation), 
+        the following code will check if this richload filename is located
+        in intro frame richload "F1_F2_Richload"    
+        In this situation, F2_F3_Richload will never display so use minimal/blank richload zip
+        with smallest possible filesize
+        
+        */
+
+        const loc = document.baseURI;
+        const dir = myFT.instantAds.F1_F2_Richload;
+
+        //if(myFT.instantAds.F1_F2_Richload == )
+        if (!loc.includes(dir)) {
+            trace("Endframe path: " + loc)
+            trace("F1_F2_Richload name: " + dir)
+            trace("> Intro Animation Setup is being used, play intro animation");
+
+        }
+
+        if (loc.includes(dir)) {
+            setTimeout(function () {
+                trace("Endframe path: " + loc)
+                trace("F1_F2_Richload name: " + dir)
+                trace("> Endframe Only setup being used, play endframe layout only");
+
+                animateAd(currentFrame);
+            }, 1000);
+        }
+
+
+    }
+}
+
+function removeBreaks(arr) {
+        for (var i = 0; i < arr.length; i++){
+            arr[i].innerHTML = arr[i].innerHTML.split("</span><br><span>").join("</span><span>").split("</span></br><span>").join("</span><span>").split("<br><span>").join("<span>").split("<br></span></span><br><ac>").join("<br></span></span><ac>").split("<br></span></span><br><aac>").join("<br></span></span><aac>".split("</aac><br>").join("</aac>")).split("<br></aac>").join("</aac>").split("$<br></span>").join("$</span>").split("<br></span></aac>").join("</span></aac>").split("<br></span></ac>").join("</span></ac>").split("<br></span></span></ac>").join("</span></span></ac>").split("<br><aac2>").join("<aac2>");
+        }
+}
+
+function removeAAC(arr) {
+
+    for (var i = 0; i < arr.length; i++) {
+        var str = arr[i].innerHTML.toString();
+        var substr = "<aac><span>";
+
+
+        if (str.includes(substr)) {
+
+            arr[i].innerHTML = arr[i].innerHTML.split("<span><span").join("<span").split("</span></span>").join("</span>");
+            //trace(arr[i].innerHTML.toString());
+        }
+
+    }
+}
+
+function animateAd(n) {
+    if(firstRun==true){
+        n=0;
+        firstRun=false;
+    }
+    var c1 = iaObject.Tangiberry_transition.split("|")[0].split(",")[0];
+    var c2 = iaObject.Tangiberry_transition.split("|")[0].split(",")[1];
+    //#002676,#002676|false|fade"
+
+    var colors = [c1, c2];
+    document.head.appendChild(document.createElement("style")).innerHTML = "#f1_copy ac *,#f2_copy ac *,#f3_copy ac *,#f4_copy ac *{color:white!important;background: linear-gradient(to right, " + colors.join(",") + ")!important;background-size: 100% auto!important;color: #fff0!important;background-clip: text!important;text-fill-color: #fff0!important;-webkit-background-clip: text!important;-webkit-text-fill-color: #fff0;!important}";
+    if (ids.DisclaimerLink_txt.textContent == "") ids.DisclaimerLink_txt.getElementsByTagName("img")[0].style.display = "none";
+    //trace("animate ad "+n);
+    //Determine previous/current/next frames based on frame toggle variable.
+    ids.main.style.opacity = 1;
+    currentFrame = (n == 0 ? n : currentFrame + 1);
+    previousFrame = currentFrame - 1;
+    var newFrame = iaObject.FrameCount_toggle.split(",")[currentFrame];
+    var oldFrame = iaObject.FrameCount_toggle.split(",")[previousFrame] || null;
+    var nextFrame = iaObject.FrameCount_toggle.split(",")[currentFrame + 1] || null;
+
+    
+    if (oldFrame && previousFrame != null) animateOut("Group" + oldFrame, "Group" + newFrame);
+
+    //Animate the lines.
+    //animateLines("Group" + newFrame, "Group" + oldFrame, newFrame)
+    var twoFrameDelay=0;
+    if(twoFrame=="true"){
+        twoFrameDelay=3;
+    }
+
+    gsap.delayedCall(.8, function(){
+        animateLines("Group" + newFrame, "Group" + oldFrame, newFrame)
+    });
+
+    if (newFrame == 4) {
+        // setTimeout(function () {
+        //     setShine(newFrame)
+        // }, 1500);
+        gsap.to(document.getElementById("Price_Box_Parent"), .5, {
+            marginLeft: 0,
+            opacity: 1,
+            delay: 1+twoFrameDelay,
+        });
+        gsap.to(document.getElementById("PriceEyebrow_txt"), .5, {
+            marginLeft: 0,
+            opacity: 1,
+            delay: 1+twoFrameDelay
+        });
+        gsap.to(document.getElementById("pricetxt_cont"), .5, {
+            marginLeft: 0,
+            opacity: 1,
+            delay: 1.1+twoFrameDelay
+        });
+        if(aac2Used=="true")aac2Delay=1;
+         gsap.to(ids.CTAcopy_txt, .5, {
+            opacity: 1,
+            delay: 1.1+twoFrameDelay+aac2Delay,
+            onComplete:function(){
+                ids.CTA_shine.style.position = "absolute";
+                ids.CTA_shine.style.top = ids.CTAcopy_txt.offsetTop + "px";
+                ids.CTA_shine.style.left = ids.CTAcopy_txt.offsetLeft + "px";
+                ids.CTA_shine.style.width = ids.CTAcopy_txt.offsetWidth + "px";
+                ids.CTA_shine.style.height = ids.CTAcopy_txt.offsetHeight + "px";
+                ids.CTA_shine.style.borderRadius = "100px";
+                ids.CTA_shine.style.overflow = "hidden";
+                ids.inner_shine.style.position = "absolute";
+                ids.inner_shine.style.width = "100px";
+                ids.inner_shine.style.height = ids.CTA_shine.offsetWidth + "px";
+                ids.inner_shine.style.left = "-100px";
+                ids.inner_shine.style.background = "linear-gradient(90deg,#fff0 10%, #fff7,#fff7,#fff0,#fff0)";
+                ids.inner_shine.style.top = "0px";
+                
+                gsap.to(ids.inner_shine, 1, {left: ids.CTA_shine.offsetWidth,ease: "circ.in"})
+                
+
+                document.body.onmouseover = function () {
+                    //If they ask for shine on roll:
+                    ids.inner_shine.style.left = "-100px";
+                    //gsap.to(ids.inner_shine,.75,{left:ids.CTA_shine.offsetWidth})
+                }
+                //document.getElementById("CTA_txt").classList.add('shine-me');
+            }
+        });
+
+    } else {
+        setTimeout(function () {
+            //setShine(newFrame)
+        }, 0);
+    }
+    //Set the shine animation of AAC tags after lines have animated.
+    if (oldFrame < 3 && nextFrame > 2) {
+        //If next frame is transitioning between a Block 1 Frame and Block 2 Frame (TANGIBERRY).
+        
+        setTimeout(tangiberryTransition, iaObject.FrameDuration.split(",")[currentFrame] * 1000);
+    } else if (nextFrame) {
+        //Otherwise do a normal animate ad call after prescribed time.
+        setTimeout(animateAd, iaObject.FrameDuration.split(",")[currentFrame] * 1000);
+    }
+    //Swap disclaimers if switching between F3 and 4 and disclaimer is different.
+    if (newFrame == 4 && ids.Disclaimer3_txt.innerHTML != ids.Disclaimer2_txt.innerHTML) {
+        gsap.to(ids.Disclaimer3_txt, .5, {
+            opacity: 1,
+            delay:twoFrameDelay+1.5
+        });
+        gsap.to(ids.DisclaimerLink_txt, .5, {
+            opacity: 1,
+            delay:twoFrameDelay+1.5
+        });
+        gsap.to(ids.Disclaimer2_txt, .5, {
+            opacity: 0,
+            delay:twoFrameDelay+1.5
+        });
+    }
+    if (newFrame == 4) {
+        gsap.to(ids.DisclaimerLink_txt, .5, {
+            opacity: 1,
+            delay:twoFrameDelay+1.5
+        });
+    }
+    //On first animation (regardless) - always animate Stock IP img.
+    gsap.to(ids.StockIP_img, 3, {
+        scale: .5
+    });
+    if (newFrame == 2) {
+        //If animating F2 - position secondary image
+        ids.Secondary_img.style.left = iaObject.Secondary_image_xy.split(",")[0] + "px";
+        ids.Secondary_img.style.top = iaObject.Secondary_image_xy.split(",")[1] + "px";
+        ids.Secondary_img.style.position = "absolute";
+        //Also animate away the StockIP image.
+        gsap.to(ids.StockIP_img, .25, {
+            x: 200,
+            y: 100,
+            scaleX: .1,
+            scaleY: .1,
+            filter: "blur(3px)",
+            onComplete: function () {
+                ids.StockIP_img.style.display = "none"
+            }
+        })
+        //Animate of secondary image here
+        gsap.to(ids.Secondary_img, .5, {
+            scale: .5,
+            ease: Bounce.easeOut
+        });
+        gsap.to(ids.Secondary_img, .25, {
+            opacity: 1
+        });
+    }
+    //Start of mods...
+    var tempDataObj = iaObject.DisclaimerLink_usage.split("|");
+    dom = scrubElements("id");
+    var dt = dom.DisclaimerLink_txt,
+        dth = dom.DisclaimerLink_Holder;
+    //    trace(dt)
+    //    trace(dth)
+
+    function setPos(x, y) {
+        dth.appendChild(dt);
+        dth.style.left = x + "px";
+        dth.style.top = y + "px";
+    }
+    if (!isNaN(tempDataObj[newFrame - 1].replace(",", ""))) {
+        if (tempDataObj[newFrame - 1] != tempDataObj[oldFrame - 1]) {
+            gsap.to(dt, 0.3, {
+                opacity: 0,
+                onComplete: function () {
+                    setPos(tempDataObj[newFrame - 1].split(",")[0], tempDataObj[newFrame - 1].split(",")[1])
+                }
+            })
+            gsap.to(dt, 0.3, {
+                opacity: 1,
+                delay: 0.4
+            });
+        } else {
+            setPos(tempDataObj[newFrame - 1].split(",")[0], tempDataObj[newFrame - 1].split(",")[1]);
+        };
+    } else if (tempDataObj[newFrame - 1].split(":").length > 1 && tempDataObj[newFrame - 1].split(":")[0] == "nested") {
+        dom[tempDataObj[newFrame - 1].split(":")[1]].appendChild(dt)
+    } else {
+        dt.style.opacity = "0";
+    };
+}
+
+//Animate in line-by-line (lines that are different than previous frame).
+
+function animateLines(groupNew, groupOld,newFrame) {
+    var newLines = linesObject[groupNew],
+        oldLines = linesObject[groupOld];
+    for (var n in newLines) {
+        //if(transition||!(oldLines&&oldLines[n]&&newLines[n].content==oldLines[n].content)){
+        if (iaObject.AnimateLines.toLowerCase() == "all" || (iaObject.AnimateLines.toLowerCase() == "unique" && !(oldLines && oldLines[n] && newLines[n].content == oldLines[n].content))) {
+
+            // @mw super script work around for price points
+            // styles.css has added css classes for .price_sup and .price_sup_update
+            try{
+                const elements = document.querySelectorAll(".price_sup");                
+                elements.forEach(element => element.getElementsByTagName('span')[0].classList.add("price_sup_update"));
+                
+            }catch(err){
+                console.log("Unable to update .price_sup")
+            }
+            
+
+            gsap.to(newLines[n].words, .5, {
+                marginLeft: 0,
+                opacity: 1,
+                delay: n.split("").reverse()[0] / 10,
+                ease: CustomEase.create("custom", "M0,0 C0.126,0.382 0.072,0.564 0.26,0.772 0.435,0.966 0.818,1.001 1,1 "),
+                onComplete:function(){
+                    setTimeout(function(){setShine(newFrame)},500);
+                }
+            });
+            //trace(n.split("").reverse()[0])
+        } else {
+            //trace(newLines[n].words)
+        }
+    }
+    transition = false;
+    
+    
+
+}
+
+
+//Animate out lines that are different.
+function animateOut(groupO, groupI) {
+    var outLines = linesObject[groupO];
+    var inLines = linesObject[groupI];
+    for (var n in outLines) {
+        if (inLines) {
+
+            if(inLines[n] != inLines[n-1]){
+                if (iaObject.AnimateLines.toLowerCase() == "all" || (iaObject.AnimateLines.toLowerCase() == "unique" && !(inLines[n] && outLines[n].content == inLines[n].content))) {
+                    gsap.to(outLines[n].firstWord, .25, {
+                        opacity: 0,
+                        marginLeft: -30
+                    });
+                    if (outLines[n].firstWord.parentElement.parentElement.nodeName.indexOf("aac") > -1 || outLines[n].firstWord.parentElement.parentElement.nodeName.indexOf("ac") > -1) gsap.to(outLines[n].firstWord.parentElement.parentElement, .25, {
+                        opacity: 0
+                    });
+                    gsap.to(outLines[n].words, .25, {
+                        opacity: 0
+                    })
+                    if (checkPlatform().toString() == "macOS,safari") {
+                        gsap.to(outLines[n].firstWord.parentNode.parentNode, .25, {
+                            opacity: 0
+                        })
+                    }
+                }
+            }
+        }
+    }
+}
+
+//Function to execute tangiberry transition.
+function tangiberryTransition() {
+    if (iaObject.Tangiberry_transition.split("|").length == 3) {
+        var animType = iaObject.Tangiberry_transition.split("|")[2] || "left";
+        if (tangiberryed == false) {
+            if (animType == "left") ids.block2.style.left = adWidth + "px";
+            if (animType == "right") ids.block2.style.left = -adWidth + "px";
+            if (animType == "up") ids.block2.style.top = adHeight + "px";
+            if (animType == "down") ids.block2.style.top = -adHeight + "px";
+            if (animType == "fade") ids.block2.style.opacity = 0, ids.block2.style.display = "block";
+        }
+        ids.block2.style.zIndex = 100;
+        setTimeout(function () {
+            ids.block2.style.transitionDuration = ".5s";
+            ids.block2.style.display = "block", ids.block2.style.top = ids.block2.style.left = "0px", ids.block2.style.opacity = 1;
+            if (iaObject.FrameCount_toggle.split(",")[currentFrame + 1] == 3) ids.Disclaimer3_txt.style.opacity = 0;
+            setTimeout(function () {
+                postTransition()
+            }, 600);
+            if (tangiberryed == false) {
+                transition = true;
+                tangiberryed = true;
+            }
+        }, 150)
+    } else {
+        gsap.to(ids.transitionBlock, 1, {
+            marginLeft: 4 * adWidth,
+            onComplete: postTransition
+        });
+        setTimeout(function () {
+            //ids.block1.style.display = "none";
+            ids.block2.style.display = "block";
+            //trace(iaObject.FrameCount_toggle.split(",")[currentFrame-1])
+            if (iaObject.FrameCount_toggle.split(",")[currentFrame + 1] == 3) ids.Disclaimer3_txt.style.opacity = 0;
+            if (tangiberryed == false) {
+                transition = true;
+                tangiberryed = true;
+            }
+        }, 150)
+    }
+};
+
+//When tangiberry transition is done - animate in the next frame.
+function postTransition() {
+    animateAd();
+    animateExtras();
+}
+
+//This is for endframe extras.  An alternative option would be to use animateAd and use newFrame to determine what frame is being animated to (for offer frame specifics and CTA)
+function animateExtras() {
+    var twoFrameDelay=0;
+    if(twoFrame=="true"){
+        twoFrameDelay=3;
+
+    gsap.to("#Background1_img", 1, {
+        opacity: 0,
+        delay:twoFrameDelay
+    });
+
+    }
+        
+    
+    gsap.to(ids.Device_img, 1, {
+        marginLeft: 0,
+        delay:twoFrameDelay
+    });
+    //Animate other EF texts here.
+}
+//debug func, remove
+function trace(t="", t2="", t3="") {
+	if (window.location.hostname == "127.0.0.1" || window.location.hostname == "localhost" || window.location.protocol == "file:") {
+		// You are running localhost
+		console.log(t, t2, t3);
+	}
+}

@@ -1,0 +1,788 @@
+/* Basic CSS styling - will be added later */
+:root {
+    --bg-color: #1a1d21; /* Very dark background */
+    --card-bg-color: #2c3035; /* Slightly lighter card background */
+    --text-color: #e1e1e1; /* Light gray text */
+    --heading-color: #ffffff; /* White headings */
+    --border-color: #40454a; /* Subtle border */
+    --accent-color: #007bff; /* Primary blue */
+    --accent-hover-color: #0056b3;
+    --secondary-color: #6c757d; /* Gray for secondary buttons */
+    --secondary-hover-color: #5a6268;
+    --danger-color: #dc3545; /* Red */
+    --danger-hover-color: #c82333;
+    --success-color: #28a745; /* Green */
+    --warning-color: #ffc107; /* Yellow */
+    --input-bg-color: #3a3f44;
+    --input-focus-border: var(--accent-color);
+    --modal-overlay-color: rgba(0, 0, 0, 0.7);
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    line-height: 1.6;
+}
+
+h1, h2, h3 {
+    color: var(--heading-color);
+    margin-top: 0;
+}
+
+h2 {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+.container {
+    background-color: var(--card-bg-color);
+    padding: 20px 25px;
+    margin-bottom: 25px;
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* Remove general .form-group margin, Bootstrap grid gap handles spacing */
+/*
+.profile-selection, .auto-promo-section, .form-group {
+    margin-bottom: 18px;
+}
+*/
+
+/* Remove general label block display, Bootstrap handles form-label */
+/*
+label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: var(--text-color);
+}
+*/
+
+/* Apply theme colors to Bootstrap form elements */
+.form-control,
+.form-select {
+    border: 1px solid var(--border-color); 
+    background-color: var(--input-bg-color); /* Use theme variable */
+    color: var(--text-color); /* Use theme variable */
+    /* Inherit other properties like padding, font-size, border-radius from Bootstrap */
+    /* Add transition for consistency */
+    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+}
+
+/* Override Bootstrap's default focus style to match theme */
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--input-focus-border);
+    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25); /* Match BS focus shadow color */
+    /* Keep background and text color on focus */
+    background-color: var(--input-bg-color);
+    color: var(--text-color); 
+}
+
+/* Style the dropdown arrow for selects (might need vendor prefixes) */
+.form-select {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23e1e1e1' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e"); /* Use text-color for arrow */
+    background-repeat: no-repeat;
+    background-position: right .75rem center;
+    background-size: 16px 12px;
+}
+
+/* Keep basic button styles - Bootstrap will add more */
+button {
+    padding: 10px 18px;
+    border: none;
+    border-radius: 5px;
+    /* background-color: var(--accent-color); Let Bootstrap handle default */
+    /* color: white; Let Bootstrap handle */
+    cursor: pointer;
+    margin-right: 8px;
+    font-weight: 600;
+    transition: background-color 0.2s ease-in-out, transform 0.1s ease;
+}
+
+/* Keep button hover/active/disabled states */
+button:hover:not(:disabled) {
+    background-color: var(--accent-hover-color);
+    transform: translateY(-1px); /* Slight lift on hover */
+}
+
+button:active:not(:disabled) {
+    transform: translateY(0px); /* Press down effect */
+}
+
+button:disabled {
+    background-color: var(--secondary-color);
+    opacity: 0.7;
+    cursor: not-allowed;
+}
+
+/* Keep specific ID button colors */
+#delete-profile-btn { /* Use .btn-danger class instead? */
+    background-color: var(--danger-color);
+}
+#delete-profile-btn:hover:not(:disabled) {
+    background-color: var(--danger-hover-color);
+}
+#cancel-modal-btn { /* Use .btn-secondary class instead? */
+    background-color: var(--secondary-color);
+}
+#cancel-modal-btn:hover:not(:disabled) {
+    background-color: var(--secondary-hover-color);
+}
+
+/* Status Text Styles */
+#status-text {
+    font-size: 1.1em;
+    font-weight: 600;
+    margin-bottom: 15px; /* Adjusted margin */
+    padding: 5px 0;
+    text-align: center; /* Center align the status */
+    color: var(--text-color); /* Default color */
+    height: 1.5em; /* Prevent layout shift */
+    /* Add transition for smoother color changes */
+    transition: color 0.3s ease;
+}
+
+#status-text.status-ready {
+    color: var(--success-color); /* Green for ready/success */
+}
+
+#status-text.status-initializing,
+#status-text.status-info {
+    color: var(--text-color); /* Default color for info */
+}
+
+#status-text.status-running, /* Add running state if needed by polling */
+#status-text.status-warning {
+    color: var(--warning-color); /* Yellow for warning/running */
+}
+
+#status-text.status-error {
+    color: var(--danger-color); /* Red for error */
+}
+
+/* Toast Notification Styles */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1050;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    background-color: rgba(44, 48, 53, 0.95); /* Slightly transparent dark bg */
+    color: var(--text-color);
+    padding: 15px 20px;
+    border-radius: 6px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
+    border-left: 5px solid var(--secondary-color); /* Default border */
+    min-width: 250px;
+    max-width: 350px;
+    opacity: 0;
+    transform: translateX(100%);
+    transition: opacity 0.5s ease, transform 0.5s ease;
+}
+
+.toast.show {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+.toast.success {
+    border-left-color: var(--success-color);
+}
+
+.toast.error {
+    border-left-color: var(--danger-color);
+}
+
+.toast.fade-out {
+    opacity: 0;
+    transform: translateX(50px); /* Move slightly right on fade out */
+}
+
+/* Modal Styles */
+.modal {
+    /* display: none; */ /* Hide by default - using visibility now */
+    visibility: hidden; /* Use visibility */
+    opacity: 0; /* Start fully transparent */
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; /* Add transition */
+    position: fixed; /* Stay in place */
+    z-index: 1000; /* Sit on top */
+    left: 0;
+    top: 0;
+    width: 100%; /* Full width */
+    height: 100%; /* Full height */
+    overflow: auto; /* Enable scroll if needed */
+    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
+    display: flex; /* Keep flex for centering content */
+    justify-content: center; /* Center horizontally */
+    align-items: center; /* Center vertically */
+}
+
+.modal.is-visible {
+    /* display: flex; */ /* Keep display flex in the base .modal rule */
+    visibility: visible;
+    opacity: 1;
+}
+
+.modal-content {
+    background-color: var(--card-bg-color); /* Use theme variable */
+    padding: 20px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+    position: relative; /* For close button positioning */
+    width: 80%; /* Adjust as needed */
+    max-width: 750px; /* Adjust as needed */
+    /* Ensure it doesn't shrink if content is small */
+    flex-shrink: 0;
+     /* Allow internal scrolling if content overflows */
+    max-height: 90vh; 
+    overflow-y: auto; 
+}
+
+.close-btn {
+    color: var(--text-secondary);
+    position: absolute;
+    top: 10px;
+    right: 15px;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-btn:hover,
+.close-btn:focus {
+    color: var(--text-primary);
+    text-decoration: none;
+}
+
+/* Engagement Settings Layout - Improved Grid */
+/* Header Row Styling */
+.engagement-header-row {
+    display: grid;
+    /* MUST match the grid-template-columns of .engagement-row */
+    grid-template-columns: minmax(100px, 1.5fr) 1fr 0.6fr 1fr 1fr 0.8fr; 
+    gap: 12px;
+    padding: 8px 0; /* Padding top/bottom */
+    margin-bottom: 8px;
+    border-bottom: 2px solid var(--border-color); /* Stronger border below header */
+    font-weight: 600; /* Bolder text */
+}
+
+.engagement-header-row span {
+    background-color: #3a3f44; /* Dark gray background box (same as input bg) */
+    padding: 5px 8px; /* Padding inside the box */
+    border-radius: 4px; /* Slightly rounded corners */
+    text-align: center; /* Center text */
+    font-size: 0.9em; /* Slightly smaller font */
+    overflow: hidden; /* Prevent text overflow */
+    text-overflow: ellipsis; /* Add ellipsis if text too long */
+    white-space: nowrap; /* Keep on one line */
+}
+
+#engagement-settings .engagement-row {
+    display: grid;
+    /* Label | Fixed | Rand CB | Min | Max | Loop Count */
+    grid-template-columns: minmax(100px, 1.5fr) 1fr 0.6fr 1fr 1fr 0.8fr; 
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border-color);
+}
+#engagement-settings .engagement-row:last-child {
+    border-bottom: none;
+    padding-bottom: 0;
+}
+
+#engagement-settings .engagement-row label,
+.loop-settings-grid label {
+    margin-bottom: 0;
+    font-weight: normal;
+    white-space: nowrap; /* Prevent labels from wrapping */
+}
+
+#engagement-settings .engagement-row input[type="number"],
+#engagement-settings .engagement-row input[type="checkbox"],
+.loop-settings-grid input[type="number"],
+.loop-settings-grid input[type="checkbox"] {
+    width: 100%; /* Full width within grid cell */
+    margin-bottom: 0;
+    padding: 8px;
+    box-sizing: border-box;
+}
+
+.inline-cb {
+    width: auto; 
+    margin-left: 5px;
+    accent-color: var(--accent-color); /* Style checkbox */
+}
+.inline-label {
+     display: inline-block; 
+     margin-left: 4px;
+     margin-right: 10px;
+     font-weight: normal;
+     color: var(--text-color);
+}
+
+/* Loop Settings Layout - Revised for Vertical Stack */
+.loop-settings-section .form-group {
+    margin-bottom: 15px; /* Consistent spacing between rows */
+}
+
+.loop-settings-section .form-group-inline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap; /* Allow wrap on smaller screens if needed */
+    gap: 10px; 
+}
+.loop-settings-section .form-group-inline label {
+     margin-bottom: 0; /* Reset default block label margin */
+     margin-right: 5px;
+     flex-shrink: 0;
+}
+/* Make inline inputs take reasonable space */
+.loop-settings-section .form-group-inline input[type="number"] {
+    width: 80px;
+    flex-grow: 0; /* Don't grow excessively */
+}
+.loop-settings-section .form-group-inline input[type="checkbox"] {
+    flex-shrink: 0;
+}
+
+/* Remove grid styles if they exist */
+.loop-settings-grid { /* Target old class name just in case */
+    display: block; /* Override grid display */
+}
+
+.button-group {
+    text-align: right;
+    margin-top: 25px;
+    padding-top: 15px;
+    border-top: 1px solid var(--border-color);
+}
+
+/* Minor adjustments for Profile Selection area */
+.profile-selection {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+.profile-selection label {
+    margin-bottom: 0;
+    flex-shrink: 0;
+}
+.profile-selection select {
+    width: auto; /* Don't force full width */
+    flex-grow: 1; /* Allow dropdown to expand */
+    margin-bottom: 0;
+}
+.profile-selection button {
+    flex-shrink: 0;
+}
+
+/* Properly comment out auto promo section */
+/*
+.auto-promo-section {
+    display: flex; 
+    align-items: flex-end; 
+    gap: 15px;
+    flex-wrap: wrap; 
+}
+.auto-promo-section .form-group {
+    margin-bottom: 0; 
+    flex-basis: 200px; 
+    flex-grow: 1;
+}
+.auto-promo-section .form-group input,
+.auto-promo-section .form-group select {
+    width: 100%; 
+    margin-bottom: 0;
+}
+.auto-promo-button-container {
+    flex-grow: 0; 
+    align-self: flex-end; 
+    padding-bottom: 5px; 
+}
+.auto-promo-section button {
+     flex-shrink: 0;
+     width: auto; 
+}
+*/
+
+/* Properly comment out single promo grid */
+/*
+.single-promo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px 20px; 
+}
+.single-promo-grid .form-group {
+    margin-bottom: 0; 
+}
+.single-promo-grid .span-2 {
+    grid-column: span 2;
+}
+.single-promo-button-container {
+    display: flex;
+    align-items: flex-end; 
+    justify-content: flex-start; 
+}
+.single-promo-button-container button {
+    width: auto; 
+    margin-bottom: 5px; 
+}
+*/
+
+/* Navigation Styles */
+.main-nav {
+    background-color: var(--card-bg-color);
+    padding: 10px 30px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between; /* Push brand left, links right */
+    margin-bottom: 20px; /* Reduced margin */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.nav-brand {
+    font-size: 1.5em;
+    font-weight: bold;
+    color: var(--heading-color);
+    /* margin-right: auto; REMOVE - justify-content handles spacing */
+}
+
+.nav-links {
+    display: flex; /* Ensure links stay in a row */
+    gap: 20px; /* Add gap between links */
+}
+
+.nav-links a {
+    color: var(--text-color);
+    text-decoration: none;
+    margin-left: 0; /* Remove specific margin */
+    font-size: 1.1em;
+    padding: 5px 0;
+    transition: color 0.2s ease;
+    border-bottom: 2px solid transparent; 
+}
+
+.nav-links a:hover {
+    color: var(--accent-color); 
+}
+
+/* Adjust main content wrapper/area padding */
+.main-content-wrapper {
+    /* Add padding here if needed, instead of directly on main-content */
+     padding: 0 30px;
+}
+.main-content {
+     padding: 0; /* Remove padding if handled by wrapper */
+}
+
+/* Styles for username group on Profiles page */
+.username-group {
+    display: flex;
+    align-items: center; /* Vertically align label, input, button */
+    gap: 15px;
+}
+
+.username-group label {
+    margin-bottom: 0; /* Remove bottom margin for inline alignment */
+    flex-shrink: 0; /* Prevent label shrinking */
+}
+
+.username-group input[type="text"] {
+    flex-grow: 1; /* Allow input to take available space */
+    width: auto; /* Override default 100% */
+    max-width: 300px; /* Prevent it getting too wide */
+    margin-bottom: 0;
+}
+
+.username-group button {
+    flex-shrink: 0; /* Prevent button shrinking */
+    width: auto; /* Fit content */
+    margin-right: 0; /* Remove default right margin */
+}
+
+/* Make H3 within profile management look similar to H2 */
+.profile-management h3 {
+    font-size: 1.5em; /* Match default H2 size (adjust if theme differs) */
+    font-weight: 500; /* Match default H2 weight (adjust if theme differs) */
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+}
+
+/* --- History Page --- */
+#history-list table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1em;
+}
+
+#history-list th, #history-list td {
+    border: 1px solid #444;
+    padding: 8px;
+    text-align: left;
+    vertical-align: top; /* Align content to top */
+}
+
+#history-list th {
+    background-color: #333;
+}
+
+#history-list tr:nth-child(even) {
+    background-color: #2a2a2a;
+}
+
+#history-list .status-success {
+    color: #4CAF50; /* Green */
+    font-weight: bold;
+}
+
+#history-list .status-failed {
+    color: #f44336; /* Red */
+    font-weight: bold;
+}
+
+#history-list .message-cell {
+    max-width: 300px; /* Limit width of message */
+    word-wrap: break-word; /* Wrap long messages */
+    font-size: 0.9em;
+    color: #ccc; /* Lighter color for less emphasis */
+}
+
+#history-list td a {
+    color: #64b5f6; /* Light blue for links */
+    text-decoration: none;
+}
+
+#history-list td a:hover {
+    text-decoration: underline;
+}
+
+/* Add other styles as needed */ 
+
+/* --- Responsive Styles --- */
+@media screen and (max-width: 768px) {
+    body {
+        padding: 10px; /* Reduce padding on smaller screens */
+    }
+
+    .main-nav {
+        padding: 10px 15px;
+        flex-wrap: wrap; /* Allow nav items to wrap */
+        justify-content: space-between; /* Space out brand and links */
+    }
+    .nav-brand {
+        margin-right: 15px; /* Add some space to the right */
+    }
+    .nav-links {
+        flex-basis: auto; 
+        display: flex; /* Ensure flex is active */
+        justify-content: flex-end; /* Align links to the right */
+        flex-grow: 1; /* Allow links container to grow */
+        gap: 15px; /* Adjust gap for horizontal layout */
+    }
+    .nav-links a {
+        margin-left: 0; /* Keep left margin removed for this layout */
+        padding: 5px 0; 
+        flex-shrink: 0; /* Prevent links from shrinking too much */
+    }
+
+    .main-content {
+        padding: 0 10px; /* Match body padding */
+    }
+
+    .container {
+        padding: 15px;
+    }
+
+    /* Properly comment out responsive Form Adjustments */
+    /*
+    .single-promo-grid, 
+    .auto-promo-section {
+        display: flex; 
+        flex-direction: column;
+        gap: 15px;
+    }
+    .single-promo-grid .span-2 {
+        grid-column: auto; 
+    }
+    .auto-promo-section .form-group {
+        flex-basis: auto; 
+        width: 100%; 
+        box-sizing: border-box; 
+    }
+    .single-promo-button-container {
+         text-align: center; 
+         margin-top: 10px;
+         width: 100%; 
+    }
+    .auto-promo-button-container {
+         text-align: left; 
+         margin-top: 10px;
+         width: 100%; 
+    }
+    .auto-promo-button-container {
+         padding-bottom: 0; 
+    }
+    */
+
+    /* --- Profile Page Adjustments --- */
+    .profile-selection {
+        flex-direction: column; /* Stack elements */
+        align-items: stretch; /* Make items full width */
+    }
+     .profile-selection select {
+        width: 100%; /* Full width dropdown */
+    }
+    .profile-selection .button-group {
+        text-align: center; /* Center buttons */
+        margin-top: 10px;
+    }
+    .username-group {
+        flex-direction: column; /* Stack elements */
+        align-items: stretch;
+    }
+     .username-group input[type="text"] {
+        max-width: none; /* Allow full width */
+    }
+
+    /* --- Modal Adjustments --- */
+    .modal-content {
+        max-width: 95%;
+        padding: 15px;
+    }
+     /* Make modal engagement grid stack */
+    .engagement-header-row,
+    #engagement-settings .engagement-row {
+        grid-template-columns: 1fr; /* Stack all columns */
+        gap: 8px;
+    }
+    /* Hide header text on mobile, rely on input placeholders/labels */
+    .engagement-header-row span {
+        display: none; 
+    }
+    /* Ensure labels are visible */
+    #engagement-settings .engagement-row label {
+         display: block; /* Make sure label is shown */
+         margin-bottom: 3px;
+    }
+    /* Align checkbox differently when stacked */
+    #engagement-settings .engagement-row .inline-cb {
+        margin-left: 0;
+        width: auto;
+    }
+
+    /* --- History Table --- */
+    #history-list {
+        overflow-x: auto; /* Make table scrollable horizontally */
+    }
+    #history-list table {
+        min-width: 600px; /* Ensure table has min width before scrolling */
+        font-size: 0.9em; /* Slightly smaller font */
+    }
+    #history-list th, #history-list td {
+        padding: 6px;
+    }
+} 
+
+/* Specific overrides for the button column if needed */
+.card-body > .row > .d-flex.align-items-end {
+     padding-bottom: 0; /* Ensure button aligns */
+}
+
+.card-body > .row > .d-flex.align-items-end button {
+     margin-right: 0; /* Remove default button margin */
+}
+
+/* Ensure horizontal layout within Promo page Bootstrap rows */
+.card-body > .row > [class*="col-"] > label.form-label {
+    display: block; /* Keep label above input within its column */
+    margin-bottom: .25rem; /* Standard Bootstrap label margin */
+    width: auto; /* Don't force 100% width */
+}
+
+.card-body > .row > [class*="col-"] > .form-select,
+.card-body > .row > [class*="col-"] > .form-control {
+    display: block; /* Let input take column width */
+    width: 100%; /* Make input fill its column */
+    margin-bottom: 0; /* Remove extra bottom margin */
+}
+
+/* Ensure the small text doesn't break layout */
+.card-body > .row > [class*="col-"] > small.form-text {
+    display: block; /* Keep it below the input */
+    width: 100%;
+}
+
+/* Ensure button column content aligns - handled by Bootstrap classes d-flex align-items-end */
+/* .card-body > .row > .d-flex.align-items-end { } */ /* Rule removed as redundant */
+.card-body > .row > .d-flex.align-items-end > button {
+    margin-bottom: 0; /* Remove extra bottom margin */
+}
+
+/* Ensure card elements use theme background */
+.card {
+    background-color: var(--card-bg-color); /* Use variable for card background */
+    border: 1px solid var(--border-color); /* Add border if desired */
+    margin-bottom: 1.5rem; /* Consistent spacing like Bootstrap */
+    border-radius: .375rem; /* Match BS border-radius */
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Subtle shadow */
+    /* Add other card styles as needed */
+}
+
+.card-header {
+    padding: .75rem 1.25rem; /* Adjust padding */
+    margin-bottom: 0; /* Remove bottom margin */
+    background-color: rgba(0,0,0,.06); /* Slightly different header background */
+    border-bottom: 1px solid var(--border-color);
+    border-top-left-radius: calc(.375rem - 1px);
+    border-top-right-radius: calc(.375rem - 1px);
+    font-weight: 600;
+    color: #ffffff; /* Make header text white */
+}
+
+.card-body {
+    padding: 1.25rem; /* Standard Bootstrap padding */
+     /* background-color should be inherited from .card or transparent */
+} 
+/* Make text within Promo page rows white */
+.card-body > .row label.form-label,
+.card-body > .row .form-control, /* Target text inside input */
+.card-body > .row .form-select  /* Target selected value text */
+{
+    color: #ffffff !important; /* Force white text */
+}
+
+/* Ensure dropdown options have white text (might be handled by Bootstrap) */
+.card-body > .row .form-select option
+{
+    /* Background might need setting if dropdown menu is white */
+    /* background-color: var(--input-bg-color);  */
+    color: #ffffff;
+}
+
+
+/* Style placeholders specifically */
+.card-body > .row .form-control::placeholder {
+    color: #cccccc !important; /* Slightly dimmer white for placeholder */
+    opacity: 1 !important; /* Override default opacity */
+}
+
+/* Ensure button text is white (Bootstrap primary/success usually do this) */
+.card-body > .row .btn {
+   color: #ffffff !important;
+}

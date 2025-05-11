@@ -1,0 +1,76 @@
+{% extends 'base.html' %}
+
+{% block title %}RUNR - Promotion History{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <h2>Promotion History</h2>
+        <div id="history-list">
+            {% if history %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Type</th>
+                            <th>Details</th>
+                            <th>Status</th>
+                            <th>Message</th>
+                            <th>Duration (s)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for entry in history %}
+                            {# Ensure entry is a dictionary before accessing #}
+                            {% if entry is mapping %}
+                                <tr>
+                                    <td>
+                                        {# Use get for timestamp too #}
+                                        {{ entry.get('start_time') | format_datetime if entry.get('start_time') else entry.get('timestamp', 'N/A') | format_datetime if entry.get('timestamp') else 'N/A' }}
+                                    </td>
+                                    <td>{{ entry.get('type', 'Unknown') | capitalize }}</td>
+                                    <td>
+                                        {% set entry_type = entry.get('type') %}
+                                        {% if entry_type == 'single' or entry_type == 'Single Promo' %}
+                                            Platform: {{ entry.get('platform', 'N/A') }}<br>
+                                            Engagement: {{ entry.get('engagement', 'N/A') }}<br>
+                                            {% set link = entry.get('link') %}
+                                            Link: {% if link %}<a href="{{ link }}" target="_blank">{{ link[:40] }}{% if link|length > 40 %}...{% endif %}</a>{% else %}N/A{% endif %}<br>
+                                            Quantity: {{ entry.get('quantity', 'N/A') }}
+                                        {% elif entry_type == 'profile' or entry_type == 'Profile Promo' %}
+                                            Profile: {{ entry.get('profile_name', 'N/A') }}<br>
+                                            {% set link = entry.get('link') %}
+                                            Link: {% if link %}<a href="{{ link }}" target="_blank">{{ link[:40] }}{% if link|length > 40 %}...{% endif %}</a>{% else %}N/A{% endif %}<br>
+                                            Loops/Qty: {{ entry.get('quantity', 'N/A') }} {# Quantity field stores loop info for profiles #}
+                                        {% else %} {# Fallback for unknown/older types #}
+                                            {{ entry.get('profile_name', 'Details N/A') }}<br>
+                                            {% set link = entry.get('link') %}
+                                            {% if link %} Link: <a href="{{ link }}" target="_blank">{{ link[:40] }}{% if link|length > 40 %}...{% endif %}</a><br>{% endif %}
+                                            {% if entry.get('quantity') %} Qty/Loops: {{ entry.get('quantity') }} {% endif %}
+                                        {% endif %}
+                                    </td>
+                                    {% set status = entry.get('status', 'unknown') %}
+                                    <td class="status-{{ status | lower }}">
+                                        {{ status | capitalize }}
+                                    </td>
+                                    <td class="message-cell">{{ entry.get('message', '') }}</td>
+                                    <td>
+                                        {% set duration = entry.get('duration_seconds') %}
+                                        {% if duration is not none and duration is number %}
+                                            {{ "%.2f"|format(duration) }}
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                            {% else %}
+                                <tr><td colspan="6">Error: Invalid history entry format found.</td></tr>
+                            {% endif %}
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No history entries yet.</p>
+            {% endif %}
+        </div>
+    </div>
+{% endblock %} 

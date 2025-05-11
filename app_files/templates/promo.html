@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+
+{% block title %}RUNR - Auto Promo{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Auto Promo</h2>
+    <!-- Status Area for Promo Page -->
+    <div id="promo-status-area" class="alert" role="alert" style="display: none;">
+        <span id="promo-status-message"></span>
+    </div>
+
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Run Profile Promotion</h5>
+            <form id="profile-promo-form">
+                <div class="form-group">
+                    <label for="profile-select-promo">Select Profile:</label>
+                    <select id="profile-select-promo" class="form-control"></select>
+                </div>
+                <div class="form-group">
+                    <label for="promo-link-input">Link:</label>
+                    <input type="text" id="promo-link-input" class="form-control" placeholder="Enter Instagram link (e.g., post, reel)">
+                </div>
+                <button type="button" id="run-profile-btn" class="btn btn-primary">Run</button>
+                <button type="button" id="stop-profile-btn" class="btn btn-danger" disabled>Stop</button>
+            </form>
+        </div>
+    </div>
+
+    {# Optional: Add Single Promo Section if needed #}
+    {# ... #}
+
+</div>
+{% endblock %} 

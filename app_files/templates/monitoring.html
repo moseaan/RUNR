@@ -1,0 +1,88 @@
+{% extends 'base.html' %}
+
+{% block title %}RUNR - Monitor Targets{% endblock %}
+
+{% block body_attributes %}id="page-monitor"{% endblock %}
+
+{% block content %}
+<div class="container">
+    <h2>Monitor Targets</h2>
+    <!-- Status Area for Monitor Page -->
+    <div id="monitor-page-status-area" class="alert" role="alert" style="display: none;">
+        <span id="monitor-page-status-message"></span>
+    </div>
+
+    <!-- Settings Card -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Monitoring Settings</h5>
+            <div class="form-group">
+                <label for="polling-interval-input">Check Targets Every (seconds):</label>
+                <input type="number" id="polling-interval-input" class="form-control" min="30" value="600">
+            </div>
+            <button id="save-monitoring-settings-btn" class="btn btn-primary">Save Interval</button>
+            <span id="settings-status" class="status-display ml-2"></span>
+        </div>
+    </div>
+
+    <!-- Add Target Card -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Add New Target</h5>
+            <div class="form-group">
+                <label for="monitor-username-input">Instagram Username:</label>
+                <input type="text" id="monitor-username-input" class="form-control" placeholder="Enter username (no @)">
+            </div>
+            <div class="form-group">
+                <label for="monitor-add-profile-select">Promotion Profile:</label>
+                <select id="monitor-add-profile-select" class="form-control">
+                    <option value="">-- Select Profile --</option>
+                    <!-- Options populated by JS -->
+                </select>
+            </div>
+            <button id="add-monitoring-target-btn" class="btn btn-success">Add Target</button>
+            <span id="add-target-status" class="status-display ml-2"></span>
+        </div>
+    </div>
+
+    <!-- Monitored Targets List Card -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <h5 class="card-title">Currently Monitored Targets</h5>
+            <div id="monitor-list-status" class="status-display mb-2"></div>
+            <div class="table-responsive">
+                <table class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Promo Profile</th>
+                            <th>Status</th>
+                            <th>Last Checked</th>
+                            <th>Last Pushed Post</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="monitoring-targets-list">
+                        <!-- Rows added by JS -->
+                        <tr><td colspan="6" class="text-center">Loading targets...</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Manual Test Card -->
+    <div class="card">
+        <div class="card-body">
+            <h5 class="card-title">Test Latest Post Scrape</h5>
+            <div class="form-group">
+                <label for="test-scrape-username-input">Instagram Username:</label>
+                <input type="text" id="test-scrape-username-input" class="form-control" placeholder="Enter username (no @)">
+            </div>
+            <button id="test-scrape-btn" class="btn btn-info">Test Scrape</button>
+            <div id="test-scrape-result" class="status-display mt-2"></div>
+        </div>
+    </div>
+
+</div>
+{% endblock %} 

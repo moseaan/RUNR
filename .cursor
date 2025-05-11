@@ -1,0 +1,34 @@
+# Social Media Automation Tool Task List
+
+1.  [x] **Project Setup:** Choose a project directory and initialize a Python project environment (e.g., using `venv`).
+2.  [x] **Install Dependencies:** Install Playwright (`pip install playwright`).
+3.  [x] **Install Playwright Browsers:** Run `playwright install` to download necessary browser binaries (including Chrome).
+4.  [x] **Choose UI Framework:** Decide on a UI framework (e.g., Tkinter, PyQt, CustomTkinter, Flask/FastAPI with HTML/JS). - *Selected CustomTkinter*
+5.  [x] **Install UI Framework:** Install the chosen UI framework library if required.
+6.  [x] **Basic UI Layout:** Create the main window/page structure for the UI.
+7.  [x] **UI Element - Platform Selection:** Add UI components (e.g., dropdown, radio buttons) for selecting the social media platform (Instagram, TikTok, YouTube, X).
+8.  [x] **UI Element - Engagement Type Selection:** Add UI components for selecting the type of engagement (likes, comments, views, shares, saves), dynamically updating based on the selected platform if needed.
+9.  [x] **UI Element - Post Link Input:** Add a text input field for the user to paste the post link.
+10. [x] **UI Element - Engagement Quantity Input:** Add a number input field for the desired amount of engagement.
+11. [x] **UI Element - Submit Button:** Add a button to trigger the automation process.
+12. [x] **UI Element - Confirmation Dialog:** Implement a confirmation prompt ("Are you sure...?") that appears when the submit button is clicked.
+13. [x] **Configuration - Target Website URL:** Store the URL of the website used for automation securely (e.g., config file, environment variable).
+14. [x] **Configuration - Login Credentials:** Decide on a secure method to store/retrieve login credentials for the target website (e.g., environment variables, keyring, manual input - avoid hardcoding). - *Selected .env file*
+15. [x] **Playwright - Identify Login Elements:** Use Playwright's codegen tool (`playwright codegen <target_website_url>`) or manual inspection to find the selectors for the username field, password field, and login button on the target website.
+16. [x] **Playwright - Implement Login Function:** Create a reusable Python function using Playwright to launch Chrome, navigate to the login page, enter credentials, and click the login button.
+17. [x] **Playwright - Identify Navigation Elements:** Determine the selectors for links/buttons needed to navigate from the dashboard/home page to the specific section for submitting engagement requests.
+18. [x] **Playwright - Implement Navigation Function:** Create a function to handle navigation after login to the correct form/page.
+19. [x] **Playwright - Identify Form Elements:** For the engagement submission form, identify selectors for the platform dropdown, engagement type dropdown, link input field, quantity input field, and the final submit button.
+20. [x] **Playwright - Implement Form Filling Function:** Create a function that takes platform, engagement type, link, and quantity as arguments, selects/fills the appropriate fields on the target website's form using Playwright.
+21. [x] **Playwright - Implement Submit Function:** Create a function that clicks the final submit button on the form.
+22. [x] **Integration - Connect UI Submit to Logic:** Link the UI's "Submit" button (after confirmation) to trigger the Playwright automation functions.
+23. [x] **Integration - Pass Data from UI:** Ensure the selected platform, engagement type, link, and quantity from the UI are correctly passed to the Playwright functions.
+24. [x] **Error Handling - Login Failures:** Add error handling for incorrect credentials or login page changes.
+25. [x] **Error Handling - Element Not Found:** Implement robust error handling (e.g., try-except blocks with timeouts and retries) for cases where selectors might fail due to website updates.
+26. [N/A] **Error Handling - Website Errors:** Handle potential errors displayed by the target website after submission. *(Site doesn't provide clear error feedback)*
+27. [x] **Feedback - UI Updates:** Provide feedback to the user in the UI about the automation status (e.g., "Running...", "Success!", "Error: [message]"). *(Implemented threading and status label)*
+28. **Refinement - Selector Robustness:** Review and potentially improve selectors to be less brittle (e.g., using text content, relative selectors, or data-testid attributes if available).
+29. **Testing - Unit Tests:** Write unit tests for individual functions (UI logic, Playwright interactions where possible).
+30. **Testing - Integration Tests:** Test the end-to-end flow from UI input to successful automation completion for each platform/engagement type combination.
+31. [x] **Code Cleanup and Refactoring:** Organize code into logical modules/classes, add comments where necessary, and remove redundant code.
+32. [x] **Documentation:** Create a simple README file explaining how to set up and run the application. 

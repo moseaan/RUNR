@@ -1,0 +1,13 @@
+{
+    "polling_interval_seconds": 300,
+    "targets": [
+        {
+            "id": "d75a40a6-30e6-43d0-8d56-773a14e45b27",
+            "target_username": "mosean.avi",
+            "promotion_profile_name": "Test",
+            "last_pushed_post_url": null,
+            "is_running": false,
+            "last_checked_timestamp": null
+        }
+    ]
+}

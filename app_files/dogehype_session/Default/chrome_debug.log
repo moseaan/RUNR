@@ -1,0 +1,6 @@
+[0425/025729.096:INFO:CONSOLE(290)] "Пользователь не авторизован.", source: https://dogehype.com/dashboard (290)
+[0425/025729.378:INFO:CONSOLE(245)] "Ошибка при вызове verify: TypeError: Cannot read properties of undefined (reading 'oauth')", source: https://dogehype.com/dashboard (245)
+[0425/025734.105:INFO:CONSOLE(290)] "Пользователь не авторизован.", source: https://dogehype.com/dashboard (290)
+[0425/025739.104:INFO:CONSOLE(290)] "Пользователь не авторизован.", source: https://dogehype.com/dashboard (290)
+[0425/025744.097:INFO:CONSOLE(290)] "Пользователь не авторизован.", source: https://dogehype.com/dashboard (290)
+[0425/025749.110:INFO:CONSOLE(290)] "Пользователь не авторизован.", source: https://dogehype.com/dashboard (290)
