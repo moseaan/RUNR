@@ -477,7 +477,7 @@ def run_single_automation(platform: str, engagement_type: str, link: str, quanti
 
     try:
         with sync_playwright() as p:
-            print(f"Launching new browser instance (headless, non-persistent) for single automation.")
+            print(f"Launching new browser instance (non-headless, non-persistent) for single automation.")
             browser = p.chromium.launch(
                 headless=True
                 # No executable_path needed, Playwright will use its own installed browser
@@ -583,10 +583,10 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
                 status_update_callback(job_id, 'stopped', final_message)
                 return 
             
-            print(f"Launching new browser instance (headless, non-persistent) for profile automation.")
+            print(f"Launching new browser instance (non-headless, non-persistent) for profile automation.")
             browser = p.chromium.launch(
                 headless=True, 
-                slow_mo=50, # Can keep slow_mo if it helps stability, even headless
+                slow_mo=50, # Can keep slow_mo if it helps stability, even non-headless
             )
             browser_context = browser.new_context()
             page = browser_context.new_page()
@@ -770,9 +770,9 @@ def scrape_latest_post_with_playwright(username: str) -> Tuple[Optional[str], Op
 
     try:
         with sync_playwright() as p:
-            print(f"[Playwright Scrape] Launching new browser instance (headless, non-persistent).")
+            print(f"[Playwright Scrape] Launching new browser instance (non-headless, non-persistent).")
             browser = p.chromium.launch(
-                headless=True, 
+                headless=False, 
             )
             context = browser.new_context(
                 user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.102 Safari/537.36" 
