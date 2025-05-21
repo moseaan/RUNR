@@ -1,5 +1,18 @@
 [
     {
+        "job_id": "single_promo_Instagram_Likes_1747848376.4044077",
+        "type": "Single Promo",
+        "profile_name": "Instagram - Likes",
+        "link": "https://www.instagram.com/p/DJ2J0Twyg2y/",
+        "quantity": 10,
+        "start_time": "2025-05-21T13:26:16.408415",
+        "end_time": "2025-05-21T13:26:49.425401",
+        "duration_seconds": 33.02,
+        "status": "Success",
+        "message": "Single promo successful: 10 Likes for https://www.instagram.com/p/DJ2J0Twyg2y/",
+        "timestamp": "2025-05-21T13:26:49.426401"
+    },
+    {
         "job_id": "promo_IG Pic_1747846664.288717",
         "type": "Profile Promo",
         "profile_name": "IG Pic",

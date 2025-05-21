@@ -39,6 +39,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # --with-deps might be redundant here as system deps are handled by apt-get, but it's harmless.
 RUN playwright install --with-deps chromium
 
+# Copy the .env file from the project root to /app in the container
+COPY .env /app/
+
 # Copy the entire app_files directory content into the container at /app
 # This will include app.py, automation_runner.py, templates/, static/, etc.
 COPY app_files/ /app/
