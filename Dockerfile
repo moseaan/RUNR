@@ -4,8 +4,8 @@ FROM python:3.11-slim
 # Set the working directory in the container
 WORKDIR /app
 
-# Install system dependencies needed by Playwright and Chromium
-# List from Playwright documentation for Debian/Ubuntu
+# Install system dependencies needed by Playwright and Chromium, and Tcl/Tk for customtkinter
+# List from Playwright documentation for Debian/Ubuntu, plus tk-dev
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libnss3 \
     libnspr4 \
@@ -25,6 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcairo2 \
     libasound2 \
     fonts-liberation \
+    tk-dev \
     # Clean up apt cache
     && rm -rf /var/lib/apt/lists/*
 
