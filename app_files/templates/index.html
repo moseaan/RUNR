@@ -27,6 +27,7 @@
     <div class="card mb-3">
         <div class="card-header"><strong>Single Promo</strong></div>
         <div class="card-body">
+            <div id="single-promo-status-area" class="mb-3"></div>
             <div class="row g-3 align-items-end">
                 <div class="col-md-3">
                     <label for="platform-select" class="form-label">Platform</label>
@@ -61,6 +62,7 @@
     <div class="card mb-3">
         <div class="card-header"><strong>Auto Promo</strong></div>
         <div class="card-body">
+            <div id="promo-status-area" class="mb-3"></div>
             <div class="row g-3 align-items-end">
                 <div class="col-md-4">
                     <label for="profile-select-promo" class="form-label">Select Profile</label>
@@ -68,13 +70,14 @@
                         <!-- Options populated by JS -->
                 </select>
             </div>
-                <div class="col-md-7">
+                <div class="col-md-6">
                     <label for="profile-link-input" class="form-label">Link</label>
                     <input type="text" id="profile-link-input" class="form-control" placeholder="e.g., https://...">
                 </div>
-                <div class="col-md-1 d-flex align-items-end">
+                <div class="col-md-2 d-flex align-items-end">
                     <button id="start-profile-promo-btn" class="btn btn-primary w-100">Run</button>
-            </div>
+                    <button id="stop-profile-btn" class="btn btn-danger w-100 ms-2" disabled>Stop</button>
+                </div>
              </div>
         </div>
     </div>

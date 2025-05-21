@@ -719,8 +719,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     */
 
-    // --- NEW Stop Function using API ---
     async function stopProfilePromotion() {
+        console.log("[Debug] stopProfilePromotion called. currentProfileJobId:", currentProfileJobId); // Added for debugging
         if (!currentProfileJobId) {
             showStatus("No profile promotion job ID found to stop.", 'warning', 'promo-status-area', 'promo-status-message', 3000);
             return;
@@ -734,17 +734,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const data = await apiCall('/api/stop_promo', 'POST', { job_id: currentProfileJobId });
             if (data && data.status === 'success') {
                 showStatus(data.message || `Stop requested for job ${currentProfileJobId}.`, 'info', 'promo-status-area', 'promo-status-message');
-                // Polling should eventually reflect 'stopped' status. We don't stop polling here.
-                // Button enabling will happen when polling detects final state.
+                // Optionally, also stop monitoring for the associated target
+                // This requires knowing the target ID or username/profile
+                // If you have the profile name or username, call stopMonitoringForTarget
+                // Example: await stopMonitoringForTarget(targetId); // Needs mapping
             } else {
-                // API call succeeded but backend reported an issue
-                 showStatus(data.message || `Failed to register stop request for job ${currentProfileJobId}.`, 'warning', 'promo-status-area', 'promo-status-message', 5000);
-                 if(stopButton) stopButton.disabled = false; // Re-enable if request failed
+                showStatus(data.message || `Failed to register stop request for job ${currentProfileJobId}.`, 'warning', 'promo-status-area', 'promo-status-message', 5000);
+                if(stopButton) stopButton.disabled = false;
             }
         } catch (error) {
-            // Network/fetch error handled by apiCall showing status
-             showStatus(`Error sending stop request for ${currentProfileJobId}. Check console.`, 'danger', 'promo-status-area', 'promo-status-message');
-             if(stopButton) stopButton.disabled = false; // Re-enable on error
+            showStatus(`Error sending stop request for ${currentProfileJobId}. Check console.`, 'danger', 'promo-status-area', 'promo-status-message');
+            if(stopButton) stopButton.disabled = false;
         }
         // Note: currentProfileJobId is NOT cleared here. The polling function handles final state.
     }
@@ -1160,6 +1160,23 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Helper: Find running auto promo job for a username/profile (stub, needs backend support or job tracking)
+    async function stopAutoPromoForTarget(targetUsername, profileName) {
+        // This function assumes you have a way to map username/profile to a running job ID
+        // For now, we use currentProfileJobId if available and matches
+        if (currentProfileJobId) {
+            // Optionally, check if the job matches the profile/username
+            await stopProfilePromotion();
+        }
+    }
+
+    // Helper: Stop monitoring for a target by ID
+    async function stopMonitoringForTarget(targetId) {
+        // PUT to /api/monitoring/targets/<target_id> with is_running: false
+        await apiCall(`/api/monitoring/targets/${targetId}`, 'PUT', { is_running: false });
+    }
+
+    // Patch: When stopping a monitored target, also stop auto promo
     function handleToggleMonitoring(event) {
         console.log("handleToggleMonitoring called");
         const monitorListStatus = document.getElementById('monitor-list-status');
@@ -1176,25 +1193,31 @@ document.addEventListener('DOMContentLoaded', function() {
         button.disabled = true; // Disable button during API call
 
         apiCall(`/api/monitoring/targets/${targetId}`, 'PUT', { is_running: newState })
-            .then(data => {
+            .then(async data => {
                 if (data.success && data.targets) {
                     renderMonitoringTargets(data.targets); // Re-render the whole list
                     showTemporaryStatus(monitorListStatus, `Successfully ${newState ? 'started' : 'stopped'} monitoring for ${targetName}.`, "success");
+                    // If stopping, also stop auto promo for this target
+                    if (!newState) {
+                        // Find the profile name for this target
+                        const target = data.updated_target || (data.targets.find(t => t.id === targetId));
+                        if (target) {
+                            await stopAutoPromoForTarget(target.target_username, target.promotion_profile_name);
+                        }
+                    }
                 } else {
                      showTemporaryStatus(monitorListStatus, data.error || `Failed to ${action.toLowerCase()} monitoring.`, "danger");
-                     // Button will be re-enabled by re-rendering or need manual re-enable if render fails
-                     // Let's try re-enabling manually just in case render fails
                      button.disabled = false;
                 }
             })
             .catch(error => {
-                // API call helper shows main status error
                 showTemporaryStatus(monitorListStatus, `Error ${action.toLowerCase()} monitoring.`, "danger");
-                button.disabled = false; // Re-enable button on failure
+                button.disabled = false;
             });
     }
 
-     function handleRemoveMonitoring(event) {
+    
+    function handleRemoveMonitoring(event) {
         console.log("handleRemoveMonitoring called");
          const monitorListStatus = document.getElementById('monitor-list-status');
          if(!monitorListStatus) return;

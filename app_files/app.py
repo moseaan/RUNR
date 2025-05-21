@@ -636,12 +636,13 @@ def stop_profile_promo():
 
     job = scheduler.get_job(job_id)
     if not job:
-        # Maybe it finished already? Check status dict
-        if job_id in job_statuses and job_statuses[job_id]['status'] in ['success', 'failed', 'stopped']:
-            return jsonify({"status": "error", "message": f"Job {job_id} has already finished."}) # No need for 404
-        else:
-            return jsonify({"status": "error", "message": f"Job {job_id} not found or not running."}), 404
-            
+        # If the job is not in the scheduler, it may already be running or finished.
+        # Always add to requested_stops so the running job can see it.
+        requested_stops.add(job_id)
+        update_job_status(job_id, 'stopping', 'Stop requested by user...')
+        app.logger.info(f"Stop requested for job ID: {job_id} (not in scheduler, may be running)")
+        return jsonify({"status": "success", "message": f"Stop request registered for job {job_id} (not in scheduler, may be running)."})
+        
     # Check if already requested to stop
     if job_id in requested_stops:
         return jsonify({"status": "success", "message": f"Stop already requested for job {job_id}."})

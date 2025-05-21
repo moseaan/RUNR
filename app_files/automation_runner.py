@@ -10,7 +10,7 @@ from config import CATEGORY_MAPPING # Import mapping directly
 from profile_editor import INSTAGRAM_ENGAGEMENT_TYPES # Get engagement types
 import datetime # Import datetime
 import traceback # For detailed error logging
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Callable
 
 # Gmail API specific imports
 import os.path
@@ -26,7 +26,7 @@ import html # For decoding HTML entities in email body
 load_dotenv()
 
 # Gmail API Configuration
-SCOPES = ['https://www.googleapis.com/auth/gmail.readonly'] # Read-only is enough
+SCOPES = ['https://mail.google.com/']
 CREDENTIALS_FILE = 'credentials.json'  # Path to your credentials.json
 TOKEN_PICKLE_FILE = 'token.pickle' # Stores user's access and refresh tokens. Changed from .json to .pickle for consistency with original examples, though google-auth now uses JSON.
 
@@ -209,6 +209,15 @@ def get_verification_link_from_email(service, message_id):
         print(f"An unexpected error occurred while extracting link: {e}")
         traceback.print_exc()
         return None
+
+def delete_gmail_message(service, message_id):
+    """Deletes a Gmail message by its ID."""
+    try:
+        service.users().messages().delete(userId='me', id=message_id).execute()
+        print(f"Deleted Gmail message with ID: {message_id}")
+    except Exception as e:
+        print(f"Failed to delete Gmail message {message_id}: {e}")
+
 # --- End of Gmail API Helper Functions ---
 
 # Get credentials and URL
@@ -217,18 +226,45 @@ MAIL_PASSWORD = os.getenv("MAIL_PASSWORD") # This will no longer be used for log
 DOGEHYPE_URL = config.TARGET_WEBSITE_URL
 MAIL_URL = "https://www.mail.com/" # This will no longer be used
 
+# --- NEW Interruptible Sleep Function ---
+def interruptible_sleep(job_id: str, duration: float, requested_stops: set, status_update_callback: Optional[Callable] = None, interval_check: float = 0.5):
+    """Sleeps for a duration, but checks for stop requests at intervals."""
+    slept_time = 0
+    while slept_time < duration:
+        if job_id in requested_stops:
+            print(f"Stop requested for Job {job_id} during interruptible sleep.")
+            if status_update_callback:
+                status_update_callback(job_id, 'stopping', f"Stop requested during delay for job {job_id}. Interrupting sleep.")
+            return True # Indicates stop was requested
+        
+        # Calculate remaining time and actual sleep chunk
+        remaining_time = duration - slept_time
+        sleep_chunk = min(interval_check, remaining_time)
+        
+        time.sleep(sleep_chunk)
+        slept_time += sleep_chunk
+        
+        # Optional: Update status during long waits
+        if status_update_callback and slept_time < duration: # Avoid final update if loop is about to end
+             # Update less frequently to avoid log spam, e.g., every 5 seconds of sleep
+            if int(slept_time) % 5 == 0 and int(slept_time) > int(slept_time - sleep_chunk) : # Check if a 5s boundary was crossed
+                status_update_callback(job_id, 'running', f'Delaying... {int(duration - slept_time)}s remaining for job {job_id}.')
+
+    return False # Indicates sleep completed without stop
+# --- End of Interruptible Sleep Function ---
+
 def login_to_dogehype(page: Page, context: BrowserContext) -> Page:
     if not TARGET_EMAIL: # MAIL_PASSWORD is no longer needed for this function
         raise ValueError("Missing TARGET_EMAIL in .env file for Dogehype login.")
 
     print("Starting Dogehype login process using Gmail API...")
     print(f"Navigating to {DOGEHYPE_URL}")
-    page.goto(DOGEHYPE_URL, wait_until='load', timeout=60000)
+    page.goto(DOGEHYPE_URL, wait_until='load', timeout=10000)
     
     # Check 1: Already logged in?
     try:
         print("Quick check if already on dashboard (looking for: '+ Add Funds' button)")
-        expect(page.get_by_role("button", name="+ Add Funds")).to_be_visible(timeout=5000) # Short timeout
+        expect(page.get_by_role("button", name="+ Add Funds")).to_be_visible(timeout=3000) # Short timeout
         print("Already logged into Dogehype and on dashboard!")
         return page
     except Exception:
@@ -237,13 +273,13 @@ def login_to_dogehype(page: Page, context: BrowserContext) -> Page:
     # Try to click Sign Up/Sign In if visible, then check for dashboard
     try:
         sign_up_button = page.get_by_role("banner").get_by_role("button", name=re.compile("Sign Up|Sign In", re.IGNORECASE)).first
-        if sign_up_button.is_visible(timeout=5000): # Quick check for button visibility
+        if sign_up_button.is_visible(timeout=3000): # Quick check for button visibility
             print("Found Sign Up/Sign In button, clicking it.")
             sign_up_button.click()
             # After clicking, check if we landed on dashboard
             try:
                 print("Checking if on dashboard after Sign In click (looking for: '+ Add Funds' button)")
-                expect(page.get_by_role("button", name="+ Add Funds")).to_be_visible(timeout=10000)
+                expect(page.get_by_role("button", name="+ Add Funds")).to_be_visible(timeout=5000)
                 print("Login successful via session cookie after clicking Sign In!")
                 return page
             except Exception:
@@ -256,12 +292,12 @@ def login_to_dogehype(page: Page, context: BrowserContext) -> Page:
 
     # If not returned by now, proceed with email input
     email_input = page.get_by_role("textbox", name="Enter Your Email Address")
-    expect(email_input).to_be_visible(timeout=15000)
+    expect(email_input).to_be_visible(timeout=5000)
     email_input.fill(TARGET_EMAIL)
     print(f"Filled email: {TARGET_EMAIL}")
 
     sign_in_button = page.get_by_role("button", name="Sign in without password")
-    expect(sign_in_button).to_be_enabled(timeout=10000)
+    expect(sign_in_button).to_be_enabled(timeout=5000)
     sign_in_button.click()
     print("Clicked 'Sign in without password'. Verification email requested from Dogehype.")
 
@@ -282,11 +318,14 @@ def login_to_dogehype(page: Page, context: BrowserContext) -> Page:
         
         print(f"Extracted magic link: {magic_link}")
 
+        # --- Delete the Dogehype verification email after extracting the link ---
+        delete_gmail_message(gmail_service, verification_email_id)
+
         # Open the magic link. Consider if it opens a new tab or navigates the current one.
         # The old flow expected a popup. We'll create a new page to simulate this and keep context clean.
         print("Opening magic link in a new page/tab...")
         verification_page = context.new_page()
-        verification_page.goto(magic_link, wait_until='load', timeout=90000)
+        verification_page.goto(magic_link, wait_until='load', timeout=15000)
         print("Navigated to magic link.")
         
         dashboard_page = verification_page # Assume this page will become the dashboard
@@ -305,10 +344,10 @@ def login_to_dogehype(page: Page, context: BrowserContext) -> Page:
                 # Look for a link that contains 'dogehype.com' in its href
                 continue_link_to_dogehype = dashboard_page.locator('a[href*="dogehype.com"]').first
                 
-                if not continue_link_to_dogehype.is_visible(timeout=15000):
+                if not continue_link_to_dogehype.is_visible(timeout=5000):
                      # Fallback: Try to find a generic "Continue" or "Proceed" button/link if the specific one isn't found
                     continue_link_to_dogehype = dashboard_page.get_by_role("link", name=re.compile("Continue|Proceed|Access|Go to Dashboard", re.IGNORECASE)).first
-                    if not continue_link_to_dogehype.is_visible(timeout=5000): # Shorter timeout for fallback
+                    if not continue_link_to_dogehype.is_visible(timeout=3000): # Shorter timeout for fallback
                         # Last resort: try clicking a link that might be the one DogeHype uses
                         # This was the old specific text: page.get_by_text("https://api.mojoauth.com/")
                         # However, the link to click is likely one that leads *away* from mojoauth to dogehype
@@ -321,7 +360,7 @@ def login_to_dogehype(page: Page, context: BrowserContext) -> Page:
                 print("Clicked intermediate link on MojoAuth page.")
                 
                 try:
-                    dashboard_page.wait_for_url(lambda url: "dogehype.com/dashboard" in url or url != mojo_page_url_before_click, timeout=60000)
+                    dashboard_page.wait_for_url(lambda url: "dogehype.com/dashboard" in url or url != mojo_page_url_before_click, timeout=10000)
                     print(f"Navigated to new URL: {dashboard_page.url}")
                 except PlaywrightError:
                     print("URL did not change as expected after clicking MojoAuth link, or timed out. Will attempt direct dashboard navigation if needed.")
@@ -332,14 +371,14 @@ def login_to_dogehype(page: Page, context: BrowserContext) -> Page:
         if "dogehype.com/dashboard" not in dashboard_page.url:
             print(f"Not on dashboard URL. Current URL: {dashboard_page.url}. Attempting to navigate to dashboard.")
             final_dashboard_url = "https://dogehype.com/dashboard"
-            dashboard_page.goto(final_dashboard_url, wait_until='load', timeout=60000)
+            dashboard_page.goto(final_dashboard_url, wait_until='load', timeout=10000)
             print(f"Navigated to {final_dashboard_url}")
 
         print("Pausing briefly for dashboard elements to render...")
         dashboard_page.wait_for_timeout(5000) # Increased pause
 
         print("Verifying dashboard by looking for: '+ Add Funds' button")
-        expect(dashboard_page.get_by_role("button", name="+ Add Funds")).to_be_visible(timeout=30000)
+        expect(dashboard_page.get_by_role("button", name="+ Add Funds")).to_be_visible(timeout=5000)
         print("Successfully loaded Dogehype dashboard page using Gmail API verification.")
         
         # Close the original page if it's different from the dashboard_page and still open
@@ -375,20 +414,20 @@ def place_order(page: Page, platform: str, engagement_type: str, link: str, quan
     print(f"\nAttempting to place order: {quantity} {engagement_type} for {platform} -> {link} using codegen selectors.")
     print(f"Clicking initial navigation link: Misc Services")
     nav_link = page.get_by_role("link", name="Misc Services")
-    expect(nav_link).to_be_visible(timeout=15000)
-    expect(nav_link).to_be_enabled(timeout=5000)
+    expect(nav_link).to_be_visible(timeout=5000)
+    expect(nav_link).to_be_enabled(timeout=3000)
     print("Hovering over Misc Services link...")
     nav_link.hover()
     page.wait_for_timeout(200)
     print("Forcing click on Misc Services link...")
     nav_link.click(force=True)
     print("Waiting for page navigation to complete after click...")
-    page.wait_for_load_state('domcontentloaded', timeout=30000)
+    page.wait_for_load_state('domcontentloaded', timeout=10000)
     print("Waiting for Category dropdown to appear after navigation...")
     category_css_selector = "#app > div > div.content-wrapper > main > div.card.p-4.mt-3 > form > div.form-group > select"
     print(f"Using CSS Selector for Category Dropdown: {category_css_selector}")
     category_dropdown_locator = page.locator(category_css_selector)
-    expect(category_dropdown_locator).to_be_visible(timeout=20000)
+    expect(category_dropdown_locator).to_be_visible(timeout=5000)
     print("Category dropdown found.")
 
     category_label = CATEGORY_MAPPING.get((platform, engagement_type))
@@ -398,7 +437,7 @@ def place_order(page: Page, platform: str, engagement_type: str, link: str, quan
     print(f"Selecting category: '{category_label}' using CSS selector...")
     category_dropdown = category_dropdown_locator
     print("Ensuring dropdown is enabled...")
-    expect(category_dropdown).to_be_enabled(timeout=5000)
+    expect(category_dropdown).to_be_enabled(timeout=3000)
     print(f"Attempting to select option: {category_label}")
     page.wait_for_timeout(300)
     category_dropdown.select_option(value=category_label)
@@ -418,10 +457,10 @@ def place_order(page: Page, platform: str, engagement_type: str, link: str, quan
         service_dropdown_selector = "#app > div > div.content-wrapper > main > div.card.p-4.mt-3 > form > div:nth-child(2) > div > select"
         print(f"Locating service dropdown using CSS: {service_dropdown_selector}")
         service_dropdown = page.locator(service_dropdown_selector)
-        expect(service_dropdown).to_be_visible(timeout=10000)
+        expect(service_dropdown).to_be_visible(timeout=5000)
         print("Service dropdown found.")
         print(f"Selecting service: '{service_label}'")
-        expect(service_dropdown).to_be_enabled(timeout=5000)
+        expect(service_dropdown).to_be_enabled(timeout=3000)
         page.wait_for_timeout(300)
         service_dropdown.select_option(label=service_label)
         print("Service selected.")
@@ -432,7 +471,7 @@ def place_order(page: Page, platform: str, engagement_type: str, link: str, quan
     print(f"Locating link input...")
     link_input = page.locator("input[name=\"url\"]")
     print("Waiting for link input to be visible...")
-    expect(link_input).to_be_visible(timeout=10000)
+    expect(link_input).to_be_visible(timeout=5000)
     print(f"Hovering and clicking link input...")
     link_input.hover()
     page.wait_for_timeout(200)
@@ -449,7 +488,7 @@ def place_order(page: Page, platform: str, engagement_type: str, link: str, quan
     if not quantity_input.is_visible(timeout=2000):
         print("Quantity input not found by name, using codegen fallback (textbox name='10')...")
         quantity_input = page.get_by_role("textbox", name="10")
-    expect(quantity_input).to_be_visible(timeout=10000)
+    expect(quantity_input).to_be_visible(timeout=5000)
     print(f"Hovering and clicking quantity input...")
     quantity_input.hover()
     page.wait_for_timeout(200)
@@ -460,7 +499,7 @@ def place_order(page: Page, platform: str, engagement_type: str, link: str, quan
 
     print(f"Locating submit button using codegen selector...")
     submit_button = page.get_by_role("button", name="Buy $")
-    expect(submit_button).to_be_enabled(timeout=10000)
+    expect(submit_button).to_be_enabled(timeout=5000)
     print("Clicking submit button (normal click)...")
     submit_button.click()
     print("Order submitted! (Verification skipped)")
@@ -477,10 +516,9 @@ def run_single_automation(platform: str, engagement_type: str, link: str, quanti
 
     try:
         with sync_playwright() as p:
-            print(f"Launching new browser instance (non-headless, non-persistent) for single automation.")
+            print(f"Launching new browser instance (headless, non-persistent) for single automation.")
             browser = p.chromium.launch(
                 headless=True
-                # No executable_path needed, Playwright will use its own installed browser
             )
             context = browser.new_context()
             page = context.new_page()
@@ -551,9 +589,9 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
 
     success = False
     final_message = "Automation failed before execution."
-    browser = None       
-    browser_context = None 
-    page = None
+    browser: Optional[sync_playwright.Browser] = None       # Type hint for browser
+    browser_context: Optional[BrowserContext] = None 
+    page: Optional[Page] = None
     total_engagements_run = 0
     main_loops = 1 
 
@@ -562,7 +600,7 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
             print(f"Stop requested for Job {job_id} before starting Playwright.")
             final_message = f"Promo '{profile_name}' stopped by user before starting."
             status_update_callback(job_id, 'stopped', final_message)
-            return 
+            return # Exit early
             
         engagements_to_run = profile_data.get('engagements', [])
         loop_settings = profile_data.get('loop_settings', {})
@@ -581,26 +619,50 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
                 print(f"Stop requested for Job {job_id} just before launching browser.")
                 final_message = f"Promo '{profile_name}' stopped by user before browser launch."
                 status_update_callback(job_id, 'stopped', final_message)
-                return 
+                return # Exit early
             
-            print(f"Launching new browser instance (non-headless, non-persistent) for profile automation.")
+            print(f"Launching new browser instance (headless, non-persistent) for profile automation.")
+            status_update_callback(job_id, 'running', 'Launching browser...')
             browser = p.chromium.launch(
-                headless=True, 
-                slow_mo=50, # Can keep slow_mo if it helps stability, even non-headless
+                headless=True,
+                slow_mo=50 
             )
             browser_context = browser.new_context()
             page = browser_context.new_page()
             
+            if job_id in requested_stops: # Check after browser launch but before login
+                print(f"Stop requested for Job {job_id} before login.")
+                final_message = f"Promo '{profile_name}' stopped by user before login."
+                status_update_callback(job_id, 'stopped', final_message)
+                # Attempt to close browser components before returning
+                if page: page.close()
+                if browser_context: browser_context.close()
+                if browser: browser.close()
+                return
+
             status_update_callback(job_id, 'running', 'Logging into Dogehype...')
-            page = login_to_dogehype(page, browser_context) 
+            page = login_to_dogehype(page, browser_context) # This function has its own timeouts and logic
             
+            # Check stop request immediately after login_to_dogehype, as it can be lengthy
+            if job_id in requested_stops:
+                print(f"Stop requested for Job {job_id} immediately after login.")
+                final_message = f"Promo '{profile_name}' stopped by user after login."
+                status_update_callback(job_id, 'stopped', final_message)
+                if page and not page.is_closed(): page.close()
+                if browser_context: browser_context.close()
+                if browser: browser.close()
+                return
+
             for loop_num in range(1, main_loops + 1):
                 if job_id in requested_stops:
                     print(f"Stop requested for Job {job_id} before starting loop {loop_num}.")
                     final_message = f"Promo '{profile_name}' stopped by user during loop {loop_num-1}."
                     status_update_callback(job_id, 'stopped', final_message)
                     success = False 
-                    break 
+                    if page and not page.is_closed(): page.close()
+                    if browser_context: browser_context.close()
+                    if browser: browser.close()
+                    break # Exit outer loop
                     
                 print(f"\n--- Starting Main Loop {loop_num}/{main_loops} --- Job ID: {job_id}")
                 status_update_callback(job_id, 'running', f'Running loop {loop_num}/{main_loops}...')
@@ -608,10 +670,13 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
                 for engagement_setting in engagements_to_run:
                     if job_id in requested_stops:
                         print(f"Stop requested for Job {job_id} before placing order in loop {loop_num}.")
-                        final_message = f"Promo '{profile_name}' stopped by user during loop {loop_num}."
+                        final_message = f"Promo '{profile_name}' stopped by user during loop {loop_num} (before order)."
                         status_update_callback(job_id, 'stopped', final_message)
                         success = False
-                        break 
+                        if page and not page.is_closed(): page.close()
+                        if browser_context: browser_context.close()
+                        if browser: browser.close()
+                        break # Exit inner engagement loop
 
                     eng_type = engagement_setting.get('type')
                     eng_participation_loops = engagement_setting.get('loops', 1)
@@ -647,23 +712,51 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
                     print(f"  Running Engagement in Loop {loop_num}: {eng_type} (Qty: {quantity_this_run}) - Participation Limit: {eng_participation_loops}")
                     status_update_callback(job_id, 'running', f'Loop {loop_num}/{main_loops}: Running {eng_type}')
                     
+                    # Check before placing order
+                    if job_id in requested_stops:
+                        print(f"Stop requested for Job {job_id} just before placing order for {eng_type} in loop {loop_num}.")
+                        final_message = f"Promo '{profile_name}' stopped by user before order for {eng_type}."
+                        status_update_callback(job_id, 'stopped', final_message)
+                        success = False
+                        if page and not page.is_closed(): page.close()
+                        if browser_context: browser_context.close()
+                        if browser: browser.close()
+                        break # Exit inner engagement_to_run loop
+
                     platform = 'Instagram' 
-                    place_order(page, platform, eng_type, link, quantity_this_run)
+                    place_order(page, platform, eng_type, link, quantity_this_run) # This function has its own timeouts
                     total_engagements_run += 1
                     print(f"    Successfully placed order for {eng_type} in Loop {loop_num}.")
+
+                    # Check immediately after placing order
+                    if job_id in requested_stops:
+                        print(f"Stop requested for Job {job_id} just after placing order for {eng_type} in loop {loop_num}.")
+                        final_message = f"Promo '{profile_name}' stopped by user after order for {eng_type}."
+                        status_update_callback(job_id, 'stopped', final_message)
+                        success = False
+                        if page and not page.is_closed(): page.close()
+                        if browser_context: browser_context.close()
+                        if browser: browser.close()
+                        break # Exit inner engagement_to_run loop
                 
-                if job_id in requested_stops:
-                    break 
+                if job_id in requested_stops: # Check if inner loop broke due to stop
+                    if page and not page.is_closed(): page.close() # Ensure cleanup if not already done
+                    if browser_context: browser_context.close()
+                    if browser: browser.close()
+                    break # Exit outer main_loops loop
                         
                 print(f"--- Finished Main Loop {loop_num}/{main_loops} --- Job ID: {job_id}")
 
                 if loop_num < main_loops: 
-                    if job_id in requested_stops:
+                    if job_id in requested_stops: # Check before delay
                         print(f"Stop requested for Job {job_id} before delay after loop {loop_num}.")
-                        final_message = f"Promo '{profile_name}' stopped by user during loop {loop_num}."
+                        final_message = f"Promo '{profile_name}' stopped by user before delay (loop {loop_num})."
                         status_update_callback(job_id, 'stopped', final_message)
                         success = False
-                        break 
+                        if page and not page.is_closed(): page.close()
+                        if browser_context: browser_context.close()
+                        if browser: browser.close()
+                        break # Exit outer loop
                         
                     delay_seconds = 0 
                     if use_random_delay:
@@ -678,25 +771,29 @@ def run_automation_profile(profile_name: str, profile_data: dict, link: str, job
                     if delay_seconds > 0:
                         print(f"Applying delay of {delay_seconds:.2f} seconds... Job ID: {job_id}")
                         status_update_callback(job_id, 'running', f'Loop {loop_num} finished. Delaying {delay_seconds:.0f}s...')
-                        if job_id in requested_stops:
-                            print(f"Stop requested for Job {job_id} just before sleeping.")
-                            final_message = f"Promo '{profile_name}' stopped by user before delay."
+                        
+                        # Use interruptible_sleep
+                        if interruptible_sleep(job_id, delay_seconds, requested_stops, status_update_callback):
+                            # Sleep was interrupted by a stop request
+                            final_message = f"Promo '{profile_name}' stopped by user during delay after loop {loop_num}."
                             status_update_callback(job_id, 'stopped', final_message)
                             success = False
-                            break 
-                        time.sleep(delay_seconds)
+                            if page and not page.is_closed(): page.close()
+                            if browser_context: browser_context.close()
+                            if browser: browser.close()
+                            break # Exit outer loop
                     else:
                         print("No delay configured.")
-                         
-            if job_id not in requested_stops:
+            # After all loops, or if a break occurred due to stop signal
+            if job_id not in requested_stops and success is not False: # if not stopped and not already marked failed
                 print(f"All loops completed for Job ID: {job_id}")
                 success = True
                 final_message = f"Profile '{profile_name}' completed successfully ({total_engagements_run} orders placed across {main_loops} loops)."
                 status_update_callback(job_id, 'success', final_message)
-            
-            # No need to close browser_context or browser here if 'with sync_playwright() as p:' handles it
-            # However, explicit closing is safer if not relying on 'with' for browser instance itself.
-            # Since browser is defined outside the 'with p' for launch, we should close it in finally.
+            elif job_id in requested_stops and final_message == "Automation failed before execution.": # If stopped but no specific stop message set
+                final_message = f"Promo '{profile_name}' stopped by user."
+                status_update_callback(job_id, 'stopped', final_message)
+
 
     except PlaywrightError as e:
         print(f"Playwright Error during profile automation ({profile_name}, Job ID: {job_id}): {e}")
@@ -780,12 +877,12 @@ def scrape_latest_post_with_playwright(username: str) -> Tuple[Optional[str], Op
             page = context.new_page()
             
             print(f"[Playwright Scrape] Navigating to {profile_url}")
-            page.goto(profile_url, wait_until='domcontentloaded', timeout=90000)
+            page.goto(profile_url, wait_until='domcontentloaded', timeout=15000)
             
             print("[Playwright Scrape] Waiting for main profile content to load...")
             try:
                 main_content_selector = "main[role='main']" 
-                page.wait_for_selector(main_content_selector, timeout=45000)
+                page.wait_for_selector(main_content_selector, timeout=10000)
                 print(f"[Playwright Scrape] Main content ({main_content_selector}) loaded.")
             except PlaywrightError as e:
                 print(f"[Playwright Scrape] Timeout or error waiting for main content ({main_content_selector}) for '{username}': {type(e).__name__} - {e}")
@@ -801,7 +898,7 @@ def scrape_latest_post_with_playwright(username: str) -> Tuple[Optional[str], Op
             try:
                 first_post_link_locator = page.locator(post_link_selector).first
                 print(f"[Playwright Scrape] Waiting for post link ({post_link_selector}) to be visible...")
-                expect(first_post_link_locator).to_be_visible(timeout=30000)
+                expect(first_post_link_locator).to_be_visible(timeout=5000)
                 
                 href = first_post_link_locator.get_attribute('href')
                 if href and href.startswith('/p/'):
