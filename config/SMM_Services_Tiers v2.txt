@@ -1,0 +1,52 @@
+Platform,Service Category,Tier,Provider,ID,Name,Rate/1K,Min/Max,Time/Speed,Why Organic/Notes
+Instagram,Followers,Mid-Tier HQ,smm kings,4973,♛⭐️ Instagram Followers [Mixed - Max 200K] 🟢,$1.28,"10/200,000",-,Mixed accounts
+Instagram,Followers,Top-Tier Real,smm kings,4427,♛⭐️ Instagram Followers [Real - Max 3M] [SPAM ON/OFF] [40 Days Refill] 🟡,$2.72,"10/3,000,000",-,Real accounts with refill
+Instagram,Likes,Mid-Tier HQ,smm kings,3708,🔥 Instagram Likes [Real - Max 200K] [NO-DROP],$0.30,"10/200,000",-,Real non-drop likes
+Instagram,Likes,Top-Tier Real,smm kings,5152,💎 Instagram Likes [ Worldwide ] [ Real & Active + Engagements ] [From Ads] ⭐️,$6.00,"5/15,000",-,Real active users from ads
+Instagram,Views,Top-Tier Real,smm kings,5225,♛🇺🇸 Instagram USA Views,$0.05,"500/5,000,000",-,USA-targeted views
+Instagram,Views,Top-Tier Real,smm kings,5603,♛💎 Instagram Worldwide Views [100% Mobile Views] ⚡,$0.40,"500/800,000",-,100% mobile views
+Instagram,Comments,Cheapest HQ,smm kings,3917,♛🔥 Instagram Random Emoji Comments [Real/HQ - Max 1K] [S1],$7.50,"1/1,000",-,Basic emoji comments
+Instagram,Comments,Cheapest HQ,smm kings,2434,♛🔥 Instagram Random Comments [Real - Max 5K],$36.00,"5/5,000",-,Real user comments
+Instagram,Saves,Cheapest HQ,smm kings,3940,♛🔥 Instagram Post Saves [HQ - Max 100K] [INSTANT],$0.025,"10/100,000",-,Basic save service
+Instagram,Saves,Cheapest HQ,smm kings,767,♛🔥 Instagram Post/Reel Saves [Real - Max 30K] [INSTANT] ⚡️⚡️,$0.07,"10/30,000",-,Real saves
+Instagram,Shares,Cheapest HQ,smm kings,6290,♛🔥 Instagram Post/Reel Shares [High Speed 20K+ Per Hour] 🆕🔥,$0.015,"10/1,000,000",-,Fast delivery shares
+Instagram,Shares,Mid-Tier HQ,smm kings,4309,♛🔥 Instagram Reel Shares [S1] [INSTANT] ⚡️⚡️,$0.09,"10/1,000,000",-,Instant reel sharing
+Instagram,Reposts,Mid-Tier HQ,Peakerr,26615,Instagram - Repost | Worldwide | MQ 50K | 100% Real Accounts | Cancel Enable | Instant Start,$12.60,"10/50,000",2 minutes,
+Instagram,Reposts,Mid-Tier HQ,Peakerr,26616,Instagram - Repost | Worldwide | MQ 5K | 100% Real Accounts | Cancel Enable | Instant Start,$14.00,"1/5,000",2 minutes,
+Instagram,Story Views/Clicks/Votes,Cheapest HQ,smm kings,5202,♛🔥 Instagram Story Views [HQ - Max 500K] [ALL POSTS],$0.24,"100/50,000",-,Higher quality story views
+Instagram,Story Views/Clicks/Votes,Top-Tier Real,smm kings,4722,♛🔥 Instagram Story Views + Impressions + Shares,$1.23,"100/100,000,000",-,Comprehensive story engagement
+Instagram,Profile Visits/Impressions,Top-Tier Real,smm kings,6028,"♛🔥 Instagram Post/Reel Impressions + Reach [1,000 Per Hour]",$0.07,"2,000/500,000",-,Controlled speed
+Instagram,Profile Visits/Impressions,Top-Tier Real,smm kings,2878,♛🔥⭐️ Instagram Post Impressions + 𝐏𝐫𝐨𝐟𝐢𝐥𝐞 𝐕𝐢𝐬𝐢𝐭𝐬 + 𝐑𝐞𝐚𝐜𝐡 [Real],$0.60,"10/20,000",-,Comprehensive engagement
+Spotify,Plays Premium,Cheapest HQ,JAP,8437,[EXCLUSIVE] 🇺🇸 Spotify Premium Algorithmic USA Plays [Refill: Lifetime Guaranteed] [Start Time: 1-12 Hours] [Speed: 2K/Day] ♻️,$0.4725,"500/1,000,000,000",18 hours 46 minutes,
+Spotify,Plays Premium,Cheapest HQ,JAP,5966,Spotify Premium Plays (Tier 1 Countries - Through Playlists) [Lifetime Guaranteed] [Max: 500K] [Start Time: 2 Hours] [Speed: 5K/Day] ♻️,$1.875,"1000/1,000,000",42 hours 25 minutes
+Spotify,Monthly Listeners,Mid-Tier HQ,JAP,8260,🇺🇸Spotify USA Monthly Listeners [Refill: No] [Max: 1M] [Start Time: 24 Hours] [Speed: 5K/Day],$2.40,"20/1,000,000",-,HQ monthly USA listeners
+Spotify,Monthly Listeners,Mid-Tier HQ,JAP,8126,Spotify Plays + Monthly Listeners [🇺🇸 USA] [Refill: Lifetime] [Max: 500K] [Start Time: 2 - 8 Hours] [Speed: Up to 30K/Day],$2.4875,"1000/500,000",-,HQ monthly USA listeners	
+Spotify,Followers,Top-Tier Real,JAP,4260,🇺🇸 Spotify USA Followers [Refill: Lifetime] [Start Time: 0-12 Hours] [Speed: 10K/Day],$0.6116,"20/100,000",-,USA followers
+Spotify,Followers,Top-Tier Real,JAP,4260,Spotify Followers [Non Drop] [Max: 1M] [Start Time: 6 Hours] [Speed: 10K/Day],$2.50,"20/1,000,000",-,USA followers
+Spotify,Saves Track/Playlist,Cheapest HQ,smm kings,4616,🔥 Spotify Track/Album Saves [Premium],$0.425,"100/80,000",-,Premium saves
+Spotify,Saves Track/Playlist,Top-Tier Real,JAP,1358,Spotify Saves [For Track/Album] [Lifetime Guaranteed] [Max: 100K] [Start Time: 1-12 Hours] [Speed: 1.5K-3K/Day] ♻️,$0.2319,"20/1,000,000",-,USA track/album saves
+Spotify,Playlist Plays/Saves,Cheapest HQ,JAP,7558,Spotify Premium Playlist/Album Plays [Lifetime Guaranteed] [Max: 1M] [Start Time: 1-12 Hours] [Speed: 3.5k/Day] ♻️$0.6048,"1,000/1,000,000",-,Real worldwide playlist
+Spotify,Playlist Plays/Saves,Cheapest HQ,smm kings, 7559,🇺🇸 Spotify USA Premium Playlist/Album Plays [Lifetime Guaranteed] [Max: 1M] [Start Time: 1-12 Hours] [Speed: 3.5k/Day] ♻️,$0.4914,"1000/1,000,000",-,Real playlist
+YouTube,Shares,Top-Tier Real,JAP,3460,YouTube Social Shares from Facebook [Lifetime Guaranteed] [Max: 10K] [Start Time: 1 Hour] [Speed: 300/Day] ♻️,$0.75,"100/100,000",-
+YouTube,Shares,Top-Tier Real,JAP,3461,YouTube Social Shares from Twitter [Lifetime Guaranteed] [Max: 10K] [Start Time: 1 Hour] [Speed: 300/Day] ♻️,$0.75,"100/100,000",
+YouTube,Subscribers,Cheapest HQ,JAP,6176,Youtube Subscribers [Refill: 90 Days - Auto Refill] [Max: 10K] [Start: 0 - 1 Hour] [Speed: Up to 300/Day]💧🔥,$18.60,"100/100,000",70 hours 43 minutes,
+YouTube,Subscribers,Cheapest HQ,JAP,6798,🇺🇸 Youtube USA Subscribers [Refill: 30 Days] [Max: 100K] [Start Time: 1 Hour] [Speed: 20/Day]💧 ♻️,$18.60,"100/100,000",87 hours 30 minutes
+YouTube,Views,Cheapest HQ,JAP,9223,Youtube Views [Refill: LIFETIME ] [2 to 5 Mins Retention] [Max: 100K] [Start Time: 0-2 Hrs] [Speed: Up to 5K/D] 💧,$1.125,"100/150,000",43 hours 42 minutes
+YouTube,Views,Cheapest HQ,JAP,9265,Youtube Views [YOUTUBE SEO ADS] [+Likes & Earnings] [Refill: Lifetime] [1 to 20 Mins Retention] [Max: 1M] [Start Time: 0-4 Hrs] [Speed: Up to 1K/D] 💧,$2.80,"100/5000",27 hours 55 minutes
+YouTube,Likes,Cheapest HQ,JAP,7431,Youtube USA Likes [Refill: 30 Days] [Max: 50K] [Start Time: 0- 15 Min] [Speed: 20k/Day],$0.875,"10/1,000,000",5 minutes
+YouTube,Likes,Cheapest HQ,JAP,2132,🇺🇸 Youtube USA Likes [Refill: 30D] [Max: 500K] [Start Time: 0-3 Hours] [Speed: 50K/Day]💧,$1.105,"10/100,000",5 minutes
+YouTube,Comments,Cheapest HQ,JAP,9961,Youtube Comments [USA] [Created by AI] [Refill: 30D] [Max: 10K] [Start Time: 0-1 Hr] [Speed: 10K/D],	$13.50,"10/10,000",1 hour 55 minutes
+YouTube,Comments,Cheapest HQ,JAP,9960,Youtube Comments [+Subs + Likes] [Created by AI] [Refill: 30D] [Max: 2K] [Start Time: 0-1 Hr] [Speed: 2K/D],	$5.8125,"10/10,000",4 hours 2 minutes
+YouTube,Comment Reply,Cheapest HQ,JAP,9970,Youtube Comment Reply [USA] [Created by AI] [Refill: 30D] [Max: 1K] [Start Time: 0-1 Hr] [Speed: 1K/D],	$13.50,"10/10,000",1 hour 25 minutes
+TikTok,Followers,Cheapest HQ,Peakerr,1811,TikTok - Followers | MQ 100K | R30 | Recommended 🔥🔥 🔝,$1.50,"5/100,000",6 hours 37 minutes,
+TikTok,Followers,Top-Tier Real,Peakerr,24824,TikTok - Followers | 100% USA | MQ 10K | Real Accounts With Posts | Cancel Enable | Instant Start | Day 10K,$4.20,"10/1,000,000",44 minutes,
+TikTok,Likes,Cheapest HQ,Peakerr,16496,TikTok - Likes | MQ 50K | Speed 1-2K P/D | 0-6 Hours | 🔥🔥🔝,$0.0163,"10/5,000,000",2 hours 27 minutes,
+TikTok,Likes,Mid-Tier HQ,Peakerr,24738,TikTok - Likes | MQ 10M | HQ & Real Profiles | Cancel Enable | Instant Start | Day 100K | Lifetime,$0.0357,"10/5,000,000",1 hour 28 minutes,
+TikTok,Views,Top-Tier Real,Peakerr,19200,Tiktok - Views | MQ 2.1B | Super Fast 🔥🔥🔝,$0.0112,"50/100,000,000",8 hours 35 minutes,Super Fast
+TikTok,Views,Top-Tier Real,Peakerr,25107,TikTok - Video Views | MQ 2.1B | HQ | Drop 0% | Instant Start | Day 500M,$0.0119,"5,000/2,147,483,647",11 minutes,HQ with 0% drop
+TikTok,Comments,Top-Tier Real,Peakerr,24546,TikTok - Random Comments | MQ 100K | HQ Profiles | Days 10K | R365,$1.764,"1/100,000",39 hours 57 minutes,
+TikTok,Comments,Mid-Tier HQ,Peakerr,19852,TikTok - Comments | MQ 1K | 6 Comments | 100% Real Humans | Top Accounts | 🔝 | Post-Related | Emojis & Text,$0.294,"1,000/1,000",9 hours 11 minutes,
+TikTok,Shares,Cheapest HQ,Peakerr,26319,TikTok - Shares | MQ 1B | HQ | Non Drop | Instant Start | Day 500K | Lifetime,$0.0196,"10/1,000,000,000",30 hours 46 minutes,
+TikTok,Shares,Top-Tier Real,smm kings,2799,♛ TikTok Shares [Real],$1.99,"10/10,000,000",-,Real shares
+TikTok,Saves,Cheapest HQ,Peakerr,14917,TikTok - Saves | MQ 10K 🔥🔥🔝,$0.017,"10/2,147,483,647",3 minutes,
+TikTok,Saves,Top-Tier Real,Peakerr,24523,TikTok - Video Saves | MQ 2.1B | Cancel Enable | Instant Start | Day 100K | R30🔝,$0.084,"10/2,147,483,647",4 hours 38 minutes

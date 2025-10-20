@@ -1,0 +1,84 @@
+Platform,Service Category,Tier,Provider,ID,Name,Rate/1K,Min/Max,Time/Speed,Why Organic/Notes
+Instagram,Reposts,Top-Tier Real,JAP,10006,Instagram REPOST [Max: 100K],$9.875,"10/100,000",5 hours 27 minutes,High volume reposts
+Instagram,Story Views/Clicks/Votes,Top-Tier Real,JustAnotherPanel,3745,Instagram Story Trend [Max: 10M],$0.82,"100/100,000,000",15 minutes,Story trend service
+Spotify,Plays Free/Premium,Cheapest HQ,JAP,2128,Spotify Free Plays [ASIA] [Refill: 365D],$0.135,"500/20,000,000",37 hours 48 minutes,Asia-targeted free plays
+Spotify,Plays Free/Premium,Cheapest HQ,JAP,2125,Spotify Free Plays [EU] [Refill: 365D],$0.135,"500/20,000,000",45 hours 40 minutes,EU-targeted free plays
+Spotify,Plays Free/Premium,Cheapest HQ,JAP,882,Spotify Free Plays [Refill: 365 Days],$0.2415,"1,000/1,000,000,000",34 hours 37 minutes,Long-term refill
+Spotify,Plays Free/Premium,Mid-Tier HQ,JAP,7799,Spotify Free Plays [Lifetime Guaranteed],$0.252,"1,000/1,000,000,000",6 hours 50 minutes,Lifetime guaranteed
+Spotify,Plays Free/Premium,Mid-Tier HQ,JAP,6261,Spotify Global Free Plays [Refill: 365D],$0.2625,"1,000/100,000,000",6 hours 31 minutes,Global free plays
+Spotify,Plays Free/Premium,Top-Tier Real,JAP,9135,Spotify USA Plays [ROYALTY ELIGIBLE],$0.315,"500/1,000,000,000",13 hours 28 minutes,Royalty eligible USA plays
+Spotify,Plays Free/Premium,Top-Tier Real,JAP,8428,Spotify Premium Plays [USA + WW],$0.5775,"1,000/50,000,000",8 hours 37 minutes,USA + WW premium
+Spotify,Plays Free/Premium,Top-Tier Real,JAP,8223,Spotify Premium Plays [Lifetime Guaranteed],$0.4305,"1,000/100,000,000",6 hours 44 minutes,Premium plays
+Spotify,Monthly Listeners,Cheapest HQ,JAP,8605,Spotify USA Monthly Listeners [Refill: No],$1.05,"500/15,000",-,USA monthly listeners
+Spotify,Monthly Listeners,Cheapest HQ,JAP,7800,Spotify Monthly Listeners [Max: 50K],$1.4875,"500/50,000",91 hours 7 minutes,Monthly listeners
+Spotify,Monthly Listeners,Mid-Tier HQ,JAP,8528,Spotify Monthly Listeners [Refill: No],$2.0313,"1,000/5,000,000",42 hours 59 minutes,Monthly listeners
+Spotify,Monthly Listeners,Mid-Tier HQ,JAP,8260,Spotify USA Monthly Listeners [Refill: No],$2.40,"20/1,000,000",31 hours 10 minutes,USA monthly listeners
+Spotify,Monthly Listeners,Top-Tier Real,JAP,8873,Spotify Monthly Listeners [USA],$2.15,"500/25,000",35 hours 46 minutes,USA monthly listeners
+Spotify,Monthly Listeners,Top-Tier Real,JAP,8874,Spotify Monthly Listeners [GERMANY],$2.15,"500/25,000",91 hours 21 minutes,Germany monthly listeners
+Spotify,Monthly Listeners,Top-Tier Real,JAP,8875,Spotify Monthly Listeners [FRANCE],$2.15,"500/25,000",78 hours 54 minutes,France monthly listeners
+Spotify,Monthly Listeners,Top-Tier Real,JAP,8876,Spotify Monthly Listeners [BRAZIL],$2.15,"500/25,000",62 hours 24 minutes,Brazil monthly listeners
+Spotify,Followers,Cheapest HQ,JAP,6537,Spotify Followers [USER/ARTIST/PLAYLIST],$0.2125,"100/100,000,000",45 minutes,User/artist/playlist
+Spotify,Followers,Cheapest HQ,JAP,467,Spotify Followers [Refill: 30Days],$0.5128,"20/100,000",-,Followers with refill
+Spotify,Followers,Top-Tier Real,JAP,8259,Spotify Followers [USA] [Lifetime Guaranteed],$1.6875,"1,000/1,000,000",-,USA followers
+Spotify,Followers,Top-Tier Real,JAP,187,Spotify Followers [Non Drop],$2.50,"20/1,000,000",-,Non-drop followers
+Spotify,Saves Track/Playlist,Mid-Tier HQ,JAP,7558,Spotify Premium Playlist/Album Plays,$0.6048,"1,000/1,000,000",19 hours 2 minutes,Premium playlist plays
+Spotify,Saves Track/Playlist,Mid-Tier HQ,JAP,5967,Spotify Basic + Premium Plays,$1.75,"1,000/1,000,000",60 hours 50 minutes,Basic + premium plays
+Spotify,Saves Track/Playlist,Top-Tier Real,JAP,9136,Spotify USA Editorial Plays [ROYALTY ELIGIBLE],$0.765,"500/1,000,000,000",7 hours 52 minutes,Royalty eligible
+Spotify,Saves Track/Playlist,Top-Tier Real,JAP,2129,Spotify Editorial Plays [USA],$1.5225,"1,000/100,000,000",6 hours 18 minutes,USA editorial
+Spotify,Playlist Plays/Saves,Mid-Tier HQ,JAP,2131,Spotify Premium Playlist Plays,$0.715,"500/20,000,000",21 hours 42 minutes,Premium playlist
+Spotify,Playlist Plays/Saves,Mid-Tier HQ,JAP,8930,Spotify Playlist Plays [USA],$0.2625,"500/20,000,000",12 hours 50 minutes,USA playlist
+Spotify,Playlist Plays/Saves,Mid-Tier HQ,JAP,8912,Spotify Playlist Plays [BRAZIL],$0.2625,"500/20,000,000",-,Brazil playlist
+Spotify,Playlist Plays/Saves,Top-Tier Real,JAP,8913,Spotify Playlist Plays [CANADA],$0.2625,"500/20,000,000",-,Canada playlist
+Spotify,Playlist Plays/Saves,Top-Tier Real,JAP,8914,Spotify Playlist Plays [SWEDEN],$0.2625,"500/20,000,000",14 hours 14 minutes,Sweden playlist
+Spotify,Playlist Plays/Saves,Top-Tier Real,JAP,8915,Spotify Playlist Plays [MEXICO],$0.2625,"500/20,000,000",-,Mexico playlist
+Spotify,Ads,Cheapest HQ,JAP,5021,Spotify Plays [GLOBAL],$0.8875,"1,000/500,000",4 hours 5 minutes,Global plays
+Spotify,Ads,Cheapest HQ,JAP,2144,Spotify Plays [Max: 500K],$0.5775,"1,000/50,000,000",8 hours 32 minutes,Plays with refill
+Spotify,Ads,Cheapest HQ,JAP,9022,Spotify Promotion [1 DAY],$50.00,1/1,132 hours 34 minutes,1-day promotion
+Spotify,Ads,Mid-Tier HQ,JAP,9023,Spotify Promotion [7 DAYS],$332.50,1/1,-,7-day promotion
+Spotify,Ads,Mid-Tier HQ,JAP,9024,Spotify Promotion [14 DAYS],$630.00,1/1,341 hours 57 minutes,14-day promotion
+Spotify,Ads,Mid-Tier HQ,JAP,9025,Spotify Promotion [30 DAYS],$1,275.00,1/1,-
+YouTube,Subscribers,Cheapest HQ,JAP,2122,Youtube Subscribers [Refill: HIGH DROP],$0.0875,"10/500,000",3 minutes,Budget option
+YouTube,Subscribers,Mid-Tier HQ,JAP,4395,Youtube Subscribers [Refill: HIGH DROP],$3.125,"10/100,000",5 minutes,Mid-range option
+YouTube,Subscribers,Top-Tier Real,JAP,681,Youtube Subscribers [Refill: 30 Days],$20.52,"100/100,000",107 hours 24 minutes,Real USA users
+YouTube,Views,Cheapest HQ,JAP,6767,Youtube Views [Refill: Lifetime],$1.50,"30/10,000,000",7 hours 59 minutes,Lifetime refill
+YouTube,Views,Cheapest HQ,JAP,7786,Youtube Views [High Engagement],$1.4125,"20,000/100,000,000",22 hours 30 minutes,High engagement
+YouTube,Views,Cheapest HQ,JAP,8466,Youtube Views [LIFETIME GUARANTEED],$1.25,"10,000/1,000,000,000",16 hours 55 minutes,Lifetime guaranteed
+YouTube,Views,Cheapest HQ,JAP,5934,Youtube Views [NO DROP],$1.481,"10,000/100,000,000",17 hours 28 minutes,Non-drop
+YouTube,Views,Mid-Tier HQ,JAP,8643,Youtube Views [BEST VALUE],$2.55,"60,000/500,000",-,Best value
+YouTube,Views,Mid-Tier HQ,JAP,6763,Youtube Views [RAV-GS™ + Engagement],$3.00,"500/500,000",10 hours 26 minutes,With engagement
+YouTube,Views,Mid-Tier HQ,JAP,489,Youtube Views [RAV™ + Engagement],$3.125,"500/500,000",5 hours 39 minutes,With engagement
+YouTube,Views,Top-Tier Real,JAP,3912,YouTube Unique Views [RAV™] + Engagements,$3.125,"500/500,000",11 hours 2 minutes,Unique views
+YouTube,Views,Top-Tier Real,JAP,3915,Youtube Livestream Views [MONETIZABLE],$3.50,"1,000/100,000",1 hour 6 minutes,Monetizable views
+YouTube,Views,Top-Tier Real,JAP,3916,YouTube Unique Views - French Speakers,$3.50,"500/100,000",14 hours 23 minutes,French speakers
+YouTube,Likes,Cheapest HQ,JAP,122,Youtube Comment Likes [UPVOTES],$0.375,"10/49,999",2 minutes,Comment upvotes
+YouTube,Likes,Cheapest HQ,JAP,124,Youtube Comment Likes [Refill: 30D],$1.82,"10/100,000",4 minutes,Comment likes
+YouTube,Likes,Cheapest HQ,JAP,371,Youtube Comments [ENGLISH] [RANDOM],$7.50,"20/11,000",28 minutes,Random English comments
+YouTube,Likes,Cheapest HQ,JAP,381,Youtube Comments [ENGLISH] [RANDOM Emoji],$7.50,"20/11,000",12 minutes,Random emoji comments
+YouTube,Likes,Mid-Tier HQ,JAP,456,Youtube Comments [ENGLISH - MALE],$7.50,"20/11,000",13 minutes,Male English comments
+YouTube,Likes,Mid-Tier HQ,JAP,585,Youtube Comments [ENGLISH - FEMALE],$7.50,"20/11,000",25 minutes,Female English comments
+YouTube,Likes,Mid-Tier HQ,JAP,8738,Youtube Comments [LQ] [CUSTOM],$5.2313,"10/100,000",18 minutes,Custom comments
+YouTube,Likes,Top-Tier Real,JAP,8737,Youtube Comments [USA HQ] [CUSTOM],$6.3938,"5/10,000",6 minutes,USA custom comments
+YouTube,Likes,Top-Tier Real,JAP,7030,Youtube Custom Comments [Max: 100K],$5.625,"10/100,000",-,Custom comments
+YouTube,Comments,Cheapest HQ,JAP,9959,Youtube Comments [+Likes] [Created by AI],$5.00,"10/2,000",1 hour 3 minutes,AI comments with likes
+YouTube,Comments,Cheapest HQ,JAP,9960,Youtube Comments [+Subs + Likes] [Created by AI],$5.8125,"10/2,000",3 hours 15 minutes,AI comments with subs & likes
+YouTube,Comments,Cheapest HQ,JAP,9961,Youtube Comments [USA] [Created by AI],$13.50,"10/10,000",43 minutes,USA AI comments
+YouTube,Comments,Cheapest HQ,JAP,9963,Youtube Comments [VIETNAM] [Created by AI],$13.50,"10/10,000",7 hours 2 minutes,Vietnam AI comments
+YouTube,Comments,Cheapest HQ,JAP,9965,Youtube Comments [KOREA] [Created by AI],$13.50,"10/10,000",1 hour 31 minutes,Korea AI comments
+YouTube,Comments,Cheapest HQ,JAP,9967,Youtube Comments [JAPAN] [Created by AI],$13.50,"10/10,000",4 hours 18 minutes,Japan AI comments
+YouTube,Comments,Mid-Tier HQ,JAP,9970,Youtube Comment Reply [USA] [Created by AI],$13.50,"5/10,000",1 hour 26 minutes,USA comment replies
+YouTube,Comments,Mid-Tier HQ,JAP,9971,Youtube Comment Reply [KOREA] [Created by AI],$13.50,"5/10,000",104 hours 58 minutes,Korea comment replies
+YouTube,Comments,Mid-Tier HQ,JAP,9972,Youtube Comment Reply [JAPAN] [Created by AI],$13.50,"5/10,000",6 minutes,Japan comment replies
+YouTube,Comments,Top-Tier Real,JAP,4295,Youtube Comments [Random] [US - UK] [NON DROP],$11.40,"100/500,000",9 hours 4 minutes,US-UK comments
+YouTube,Comments,Top-Tier Real,JAP,221,Youtube Comments [RANDOM] [USA],$37.50,"10/2,000",27 hours 51 minutes,USA comments
+YouTube,Comments,Top-Tier Real,JAP,928,Youtube Comments [CUSTOM] [USA],$50.00,"10/2,000",21 hours 6 minutes,USA custom comments
+YouTube,Live Stream Views,Cheapest HQ,JAP,3915,Youtube Livestream Views [MONETIZABLE],$3.50,"1,000/100,000",1 hour 6 minutes,Monetizable views
+YouTube,Live Stream Views,Cheapest HQ,JAP,309,Youtube Pre-Premiere Waiting Views,$3.50,"1,000/100,000",1 hour 4 minutes,Pre-premiere views
+YouTube,Live Stream Views,Mid-Tier HQ,JAP,6604,Youtube Views [ADS],$1.30,"25,000/2,147,483,647",25 hours 20 minutes,Ad views
+YouTube,Live Stream Views,Mid-Tier HQ,JAP,3915,Youtube Livestream Views [RAV™],$2.00,"100,000/500,000",-,Livestream views
+YouTube,Live Stream Views,Mid-Tier HQ,JAP,6760,Youtube Pre-Premiere Waiting Views [RAV],$3.50,"1,000/100,000",1 hour 4 minutes,Pre-premiere views
+YouTube,Live Stream Views,Top-Tier Real,JAP,3915,Youtube Livestream Views [MONETIZABLE],$3.50,"1,000/100,000",1 hour 6 minutes,Monetizable views
+YouTube,Live Stream Views,Top-Tier Real,JAP,3915,Youtube Livestream Views [MONETIZABLE],$3.50,"1,000/100,000",1 hour 6 minutes,Monetizable views
+YouTube,Live Stream Views,Top-Tier Real,JAP,3915,Youtube Livestream Views [MONETIZABLE],$3.50,"1,000/100,000",1 hour 6 minutes,Monetizable views
+YouTube,Live Stream Views,Top-Tier Real,JAP,3915,Youtube Livestream Views [MONETIZABLE],$3.50,"1,000/100,000",1 hour 6 minutes,Monetizable views
+TikTok,Shares,Cheapest HQ,JAP,9997,TikTok Shares [Max: 100K],$0.0375,"10/100,000",24 minutes,No refill
+TikTok,Saves,Top-Tier Real,Peakerr,8537,[NEW] [EXCLUSIVE] Spotify Premium Plays,$0.4725,"1,000/1,000,000,000",6 hours 20 minutes,Small amounts

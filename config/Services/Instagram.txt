@@ -1,0 +1,61 @@
+INSTAGRAM:
+
+Platform: Instagram
+Service: Views
+Provider: JAP
+ID: 767
+Name: Instagram EMERGENCY Views [Max: 500K] [Start Time: 0 - 1 Hr] [Speed: 50K/D] 💧
+Rate/1k: $0.0812
+Min/Max: 100-100000000
+Avg Time: 50 hours 34 minutes
+
+
+Platform: Instagram
+Service: Likes
+Provider: SMMKings
+ID: 5000
+Name: 💎🇺🇸 Instagram Likes [USA - Real] [NO-DROP]
+Rate/1k: $2.10
+Min/Max:  20-2000
+Avg Time: 20 minutes
+
+
+Platform: Instagram
+Service: Shares
+Provider: JAP
+ID: 9590
+Name: Instagram Shares [Max: 1M] [Start Time: 0 -1 Hr] [Speed: 100K/D]💧⛔
+Rate/1k: $0.0125
+Min/Max:  10-1000000
+Avg Time: 7 minutes
+
+
+Platform: Instagram
+Service: Saves
+Provider: JAP
+ID: 778
+Name: Instagram Saves [Max: 15K] [Start Time: 0-1 Hour] [Speed: INSTANT] 💧
+Rate/1k: $0.075
+Min/Max: 10-1000000
+Avg Time: 40 minutes
+
+
+Platform: Instagram
+Service: Reposts
+Provider: Peakerr
+ID: 10710
+Name: Instagram - Reposts | MQ 1M | 🔥🔥🔝
+Rate/1k: $0.56
+Min/Max: 100-1000000
+Avg Time: 24 minutes
+
+
+Platform: Instagram
+Service: Followers
+Provider: JAP
+ID: 579
+Name: Instagram Followers [SPAM ON] [Max: 1M] [Refill: 30D] [Start Time: 0 - 1 Hour] [Speed: 25K/Day] ♻️💧⛔
+Rate/1k: $4.00
+Min/Max: 10-10000000
+Avg Time: 5 minutes
+
