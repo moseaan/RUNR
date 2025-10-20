@@ -19,7 +19,6 @@ import instagram_monitor # Import the new monitor module
 from apscheduler.jobstores.base import JobLookupError # For removing jobs
 import json
 import uuid
-from ui_utils import format_datetime # Import the filter
 import logging
 from waitress import serve # Added for Render deployment
 # from apscheduler.executors.asyncio import AsyncIOExecutor # REMOVE Import
@@ -207,9 +206,6 @@ def initialize_monitoring_job():
 # Initialize the monitoring job right after scheduler starts
 with app.app_context(): 
     initialize_monitoring_job()
-
-# Register the custom filter
-app.jinja_env.filters['format_datetime'] = format_datetime
 
 # --- Custom Jinja Filter ---
 @app.template_filter('format_datetime')
