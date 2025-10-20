@@ -1,23 +1,10 @@
-﻿Flask>=3.1.0
+Flask>=3.1.0
 Flask-APScheduler>=1.13.1
 python-dotenv>=1.1.0
-customtkinter==5.2.2
-# Playwright for browser automation
-playwright==1.51.0
-# IMPORTANT FOR DEPLOYMENT (e.g., Render.com):
-# After pip install -r requirements.txt, browsers must be installed.
-# Add to your Build Command on Render:
-# playwright install chromium
-# Example Render Build Command: pip install -r requirements.txt && playwright install chromium
-darkdetect==0.8.0
-greenlet==3.2.1
-packaging==25.0
-pyee==12.1.1
-typing_extensions==4.13.2
 waitress
-pycryptodome
 requests
 beautifulsoup4
+pycryptodome
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib
