@@ -50,13 +50,13 @@ def get_api_key(provider: str) -> Optional[str]:
 
     key: Optional[str] = None
     if prov == 'justanotherpanel':
-        key = _read_key_from_file(_config_path('justanotherpanel api key.txt'))
+        key = _read_key_from_file(_config_path('justanotherpanel_api_key.txt'))
     elif prov == 'peakerr':
-        key = _read_key_from_file(_config_path('peakerr api key.txt'))
+        key = _read_key_from_file(_config_path('peakerr_api_key.txt'))
     elif prov == 'smmkings':
-        key = _read_key_from_file(_config_path('smm kings api key.txt'))
+        key = _read_key_from_file(_config_path('smm_kings_api_key.txt'))
     elif prov == 'mysocialsboost':
-        key = _read_key_from_file(_config_path('mysocialsboost api key.txt'))
+        key = _read_key_from_file(_config_path('mysocialsboost_api_key.txt'))
 
     _KEY_CACHE[prov] = key
     return key

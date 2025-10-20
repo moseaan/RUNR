@@ -1,18 +1,9 @@
 import sys
 import os
-# Allow Playwright Sync API even if an event loop is running (e.g., gevent/async server)
-os.environ.setdefault("PW_ALLOW_SYNC_IO", "1")
-# Add the browser_use library path to sys.path - RE-ADDING
-if 'browser_use' not in sys.modules:
-    browser_use_lib_path = os.path.abspath(os.path.join(os.path.dirname(__file__), 'browser-use-main', 'browser-use-main'))
-    if browser_use_lib_path not in sys.path:
-        sys.path.insert(0, browser_use_lib_path)
-        print(f"Added to sys.path: {browser_use_lib_path}")
 
 from flask import Flask, render_template, jsonify, request, send_from_directory
 from flask_apscheduler import APScheduler # Import APScheduler
 import profile_manager
-import automation_runner # Import the new runner module
 import api_runner  # API-based ordering runner
 import services_catalog  # CSV-driven services catalog
 import providers_api  # Provider API client
@@ -27,7 +18,6 @@ import os # Import os for development server check
 import instagram_monitor # Import the new monitor module
 from apscheduler.jobstores.base import JobLookupError # For removing jobs
 import json
-from playwright.sync_api import sync_playwright, Error as PlaywrightError
 import uuid
 from ui_utils import format_datetime # Import the filter
 import logging
@@ -159,9 +149,9 @@ def run_global_monitoring_check():
                         job_statuses[promo_job_id] = {'status': 'pending', 'message': f'Monitor trigger for {target_username} ({promo_profile_name})'} 
                         scheduler.add_job(
                             id=promo_job_id,
-                            func=automation_runner.run_automation_profile,
+                            func=api_runner.run_profile_api_promo,
                             trigger='date', # Run immediately
-                            args=[promo_profile_name, promo_settings, latest_post_url, promo_job_id, update_job_status, save_history_entry_callback, requested_stops],
+                            args=[promo_profile_name, promo_settings, latest_post_url, promo_job_id, update_job_status, save_history_entry_callback, requested_stops, None],
                             misfire_grace_time=None
                         )
                         print(f"[Global Check] 📆 Scheduled promotion job {promo_job_id} for post {latest_post_url}")
