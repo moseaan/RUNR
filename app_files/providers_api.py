@@ -21,6 +21,11 @@ def _config_path(filename: str) -> str:
     return os.path.join(_project_root(), 'config', filename)
 
 
+def _secrets_path(filename: str) -> str:
+    """Default location for Render Secret Files."""
+    return os.path.join('/etc', 'secrets', filename)
+
+
 def _normalize_provider(p: str) -> str:
     p = (p or '').strip()
     if p.upper() == 'JAP' or p.lower() == 'justanotherpanel':
@@ -49,14 +54,37 @@ def get_api_key(provider: str) -> Optional[str]:
         return _KEY_CACHE[prov]
 
     key: Optional[str] = None
+    # 1) Environment variables
     if prov == 'justanotherpanel':
-        key = _read_key_from_file(_config_path('justanotherpanel_api_key.txt'))
+        key = os.environ.get('JAP_API_KEY') or os.environ.get('JUSTANOTHERPANEL_API_KEY')
     elif prov == 'peakerr':
-        key = _read_key_from_file(_config_path('peakerr_api_key.txt'))
+        key = os.environ.get('PEAKERR_API_KEY')
     elif prov == 'smmkings':
-        key = _read_key_from_file(_config_path('smm_kings_api_key.txt'))
+        key = os.environ.get('SMMKINGS_API_KEY') or os.environ.get('SMM_KINGS_API_KEY')
     elif prov == 'mysocialsboost':
-        key = _read_key_from_file(_config_path('mysocialsboost_api_key.txt'))
+        key = os.environ.get('MYSOCIALSBOOST_API_KEY')
+
+    # 2) Config file in repo (project_root/config/*.txt)
+    if not key:
+        if prov == 'justanotherpanel':
+            key = _read_key_from_file(_config_path('justanotherpanel_api_key.txt'))
+        elif prov == 'peakerr':
+            key = _read_key_from_file(_config_path('peakerr_api_key.txt'))
+        elif prov == 'smmkings':
+            key = _read_key_from_file(_config_path('smm_kings_api_key.txt'))
+        elif prov == 'mysocialsboost':
+            key = _read_key_from_file(_config_path('mysocialsboost_api_key.txt'))
+
+    # 3) Render Secret Files fallback (/etc/secrets/*.txt)
+    if not key:
+        if prov == 'justanotherpanel':
+            key = _read_key_from_file(_secrets_path('justanotherpanel_api_key.txt'))
+        elif prov == 'peakerr':
+            key = _read_key_from_file(_secrets_path('peakerr_api_key.txt'))
+        elif prov == 'smmkings':
+            key = _read_key_from_file(_secrets_path('smm_kings_api_key.txt'))
+        elif prov == 'mysocialsboost':
+            key = _read_key_from_file(_secrets_path('mysocialsboost_api_key.txt'))
 
     _KEY_CACHE[prov] = key
     return key

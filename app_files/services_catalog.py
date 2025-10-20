@@ -14,7 +14,23 @@ def _project_root() -> str:
 
 
 def _csv_path() -> str:
-    return os.path.join(_project_root(), 'config', 'SMM_Services_Tiers.csv')
+    """Resolve the CSV path in a Render-friendly way.
+    Priority:
+    1) Env var SMM_CSV_PATH if set
+    2) Repo path: <project_root>/config/SMM_Services_Tiers.csv
+    3) Secret files path: /etc/secrets/SMM_Services_Tiers.csv
+    """
+    # 1) Environment variable override
+    env_path = os.environ.get('SMM_CSV_PATH')
+    if env_path and os.path.exists(env_path):
+        return env_path
+    # 2) Repo path
+    repo_path = os.path.join(_project_root(), 'config', 'SMM_Services_Tiers.csv')
+    if os.path.exists(repo_path):
+        return repo_path
+    # 3) Secret files default location
+    secrets_path = os.path.join('/etc', 'secrets', 'SMM_Services_Tiers.csv')
+    return secrets_path
 
 
 def _parse_rate(rate_str: str) -> Optional[float]:
