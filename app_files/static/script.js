@@ -1295,11 +1295,21 @@ document.addEventListener('DOMContentLoaded', function() {
                     showStatus('Link must start with https://', 'warning', 'promo-status-area', 'promo-status-message', 3000);
                     return;
                 }
-                const platform = promoPlatformSelect ? promoPlatformSelect.value : '';
-                if (!platform) {
-                    showStatus('Please select a platform.', 'warning', 'promo-status-area', 'promo-status-message', 3000);
-                    return;
+                // Determine platform: use dropdown if provided, otherwise derive from profile settings
+                let platform = '';
+                if (promoPlatformSelect && promoPlatformSelect.value) {
+                    platform = promoPlatformSelect.value;
+                } else {
+                    try {
+                        const profileObj = (profiles && profiles[profileName]) || (profilesDataCache && profilesDataCache[profileName]);
+                        const engagements = profileObj && Array.isArray(profileObj.engagements) ? profileObj.engagements : [];
+                        const platforms = [...new Set(engagements.map(e => e && e.platform).filter(Boolean))];
+                        if (platforms.length > 0) {
+                            platform = platforms[0];
+                        }
+                    } catch (_) { /* ignore and leave platform empty */ }
                 }
+                // Start promo; backend treats missing/empty platform as 'no filter' and uses profile settings
                 startProfilePromotion(profileName, link, platform);
             });
         } else {
