@@ -1,5 +1,5 @@
 {
-    "Instagram Post Main": {
+    "Instagram New Post": {
         "engagements": [
             {
                 "type": "Views",
@@ -10,7 +10,7 @@
                 "fixed_quantity": null,
                 "min_quantity": 100,
                 "max_quantity": 120,
-                "loops": 9
+                "loops": 90
             },
             {
                 "type": "Likes",
@@ -20,7 +20,7 @@
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 20,
-                "max_quantity": 25,
+                "max_quantity": 30,
                 "loops": 15
             },
             {
@@ -31,8 +31,8 @@
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 10,
-                "max_quantity": 10,
-                "loops": 3
+                "max_quantity": 20,
+                "loops": 1
             },
             {
                 "type": "Saves",
@@ -42,19 +42,8 @@
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 10,
-                "max_quantity": 12,
+                "max_quantity": 20,
                 "loops": 3
-            },
-            {
-                "type": "Reposts",
-                "platform": "Instagram",
-                "service_id": 10710,
-                "rate_per_1k": 0.56,
-                "use_random_quantity": true,
-                "fixed_quantity": null,
-                "min_quantity": 100,
-                "max_quantity": 120,
-                "loops": 1
             },
             {
                 "type": "Profile Visits/Impressions",
@@ -64,16 +53,82 @@
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 2000,
-                "max_quantity": 2400,
+                "max_quantity": 2200,
                 "loops": 1
             }
         ],
         "loop_settings": {
-            "loops": 15,
+            "loops": 90,
             "delay": 0,
             "random_delay": true,
-            "min_delay": 240,
+            "min_delay": 120,
             "max_delay": 360
+        }
+    },
+    "Instagram Followers (+2500/Month)": {
+        "engagements": [
+            {
+                "type": "Followers",
+                "platform": "Instagram",
+                "service_id": 579,
+                "rate_per_1k": 4,
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 10,
+                "max_quantity": 10,
+                "loops": 250
+            }
+        ],
+        "loop_settings": {
+            "loops": 250,
+            "delay": 0,
+            "random_delay": true,
+            "min_delay": 10800,
+            "max_delay": 14400
+        }
+    },
+    "Instagram Followers (+400/Month)": {
+        "engagements": [
+            {
+                "type": "Followers",
+                "platform": "Instagram",
+                "service_id": 579,
+                "rate_per_1k": 4,
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 10,
+                "max_quantity": 10,
+                "loops": 41
+            }
+        ],
+        "loop_settings": {
+            "loops": 41,
+            "delay": 0,
+            "random_delay": true,
+            "min_delay": 10800,
+            "max_delay": 14400
+        }
+    },
+    "Instagram Story Engagement": {
+        "engagements": [
+            {
+                "type": "Story Views/Clicks/Votes",
+                "platform": "Instagram",
+                "service_id": 5202,
+                "rate_per_1k": 0.24,
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 100,
+                "max_quantity": 150,
+                "loops": 5
+            }
+        ],
+        "loop_settings": {
+            "loops": 5,
+            "delay": 0,
+            "random_delay": true,
+            "min_delay": 1800,
+            "max_delay": 3600
         }
     }
 }
