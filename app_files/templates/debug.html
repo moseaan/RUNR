@@ -1,0 +1,297 @@
+{% extends 'base.html' %}
+
+{% block title %}RUNR - Debug{% endblock %}
+
+{% block body_attributes %}id="page-debug"{% endblock %}
+
+{% block content %}
+<div class="container mt-4" id="debug-page-container">
+  <h2 class="mb-3">Debug</h2>
+  <p class="text-white">Run step-by-step tests for Single Promo and Auto Promo flows. Each test shows success ✓ or failure ✗ with a log.</p>
+
+  <!-- Status Area -->
+  <div id="debug-status-area" class="status-area mb-3" style="min-height:1.5em;">
+    <span id="debug-status-message" class="text-body"></span>
+  </div>
+
+  <!-- Grid of Debug Tests -->
+  <div class="row g-3">
+    <!-- Open Chrome -->
+    <div class="col-12 col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Open Google Chrome</strong></div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-2">
+            <button class="btn btn-primary" id="dbg-open-browser-btn">Test</button>
+          </div>
+          <div class="mt-3 text-center">
+            <span id="dbg-open-browser-result" class="text-white fw-bold"></span>
+            <div id="dbg-open-browser-log" class="small text-white"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Navigate to DogeHype Login -->
+    <div class="col-12 col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Navigate to DogeHype Login</strong></div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-2">
+            <button class="btn btn-primary" id="dbg-nav-login-btn">Test</button>
+          </div>
+          <div class="mt-3 text-center">
+            <span id="dbg-nav-login-result" class="text-white fw-bold"></span>
+            <div id="dbg-nav-login-log" class="small text-white"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Select Google -->
+    <div class="col-12 col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Select Google</strong></div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-2">
+            <button class="btn btn-primary" id="dbg-select-google-btn">Test</button>
+          </div>
+          <div class="mt-3 text-center">
+            <span id="dbg-select-google-result" class="text-white fw-bold"></span>
+            <div id="dbg-select-google-log" class="small text-white"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enter Email (uses TARGET_EMAIL from .env) -->
+    <div class="col-12 col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Enter Email</strong></div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-2">
+            <button class="btn btn-primary" id="dbg-enter-email-btn">Test</button>
+          </div>
+          <div class="mt-3 text-center">
+            <span id="dbg-enter-email-result" class="text-white fw-bold"></span>
+            <div id="dbg-enter-email-log" class="small text-white"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Click Continue (Email) -->
+    <div class="col-12 col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Click Continue (Email)</strong></div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-2">
+            <button class="btn btn-primary" id="dbg-continue-email-btn">Test</button>
+          </div>
+          <div class="mt-3 text-center">
+            <span id="dbg-continue-email-result" class="text-white fw-bold"></span>
+            <div id="dbg-continue-email-log" class="small text-white"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enter Password (uses TARGET_PASSWORD or MAIL_PASSWORD from .env) -->
+    <div class="col-12 col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Enter Password</strong></div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-2">
+            <button class="btn btn-primary" id="dbg-enter-password-btn">Test</button>
+          </div>
+          <div class="mt-3 text-center">
+            <span id="dbg-enter-password-result" class="text-white fw-bold"></span>
+            <div id="dbg-enter-password-log" class="small text-white"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Continue From Password -->
+    <div class="col-12 col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Continue From Password</strong></div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-2">
+            <button class="btn btn-primary" id="dbg-continue-password-btn">Test</button>
+          </div>
+          <div class="mt-3 text-center">
+            <span id="dbg-continue-password-result" class="text-white fw-bold"></span>
+            <div id="dbg-continue-password-log" class="small text-white"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Verify Dashboard -->
+    <div class="col-12 col-md-6">
+      <div class="card h-100">
+        <div class="card-header"><strong>Verify Dashboard</strong></div>
+        <div class="card-body">
+          <div class="d-flex align-items-center mb-2">
+            <button class="btn btn-primary" id="dbg-verify-dashboard-btn">Test</button>
+          </div>
+          <div class="mt-3 text-center">
+            <span id="dbg-verify-dashboard-result" class="text-white fw-bold"></span>
+            <div id="dbg-verify-dashboard-log" class="small text-white"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Submit Promo (Single Promo-style controls) -->
+    <div class="col-12">
+      <div class="card h-100">
+        <div class="card-header"><strong>Submit Promo</strong></div>
+        <div class="card-body">
+          <div class="row g-2 mb-2 align-items-end">
+            <div class="col-12 col-sm-3">
+              <label class="form-label" for="dbg-platform">Platform</label>
+              <select id="dbg-platform" class="form-select"></select>
+            </div>
+            <div class="col-12 col-sm-3">
+              <label class="form-label" for="dbg-engagement">Engagement</label>
+              <select id="dbg-engagement" class="form-select"></select>
+            </div>
+            <div class="col-12 col-sm-3">
+              <label class="form-label" for="dbg-link">Link</label>
+              <input type="text" class="form-control" id="dbg-link" placeholder="https://...">
+            </div>
+            <div class="col-12 col-sm-2">
+              <label class="form-label" for="dbg-quantity">Quantity</label>
+              <input type="number" class="form-control" id="dbg-quantity" min="1" value="100">
+            </div>
+            <div class="col-12 col-sm-1 d-flex">
+              <button class="btn btn-primary w-100" id="dbg-submit-promo-btn">Test</button>
+            </div>
+          </div>
+          <div class="mt-3 text-center">
+            <span id="dbg-submit-promo-result" class="text-white fw-bold"></span>
+            <div id="dbg-submit-promo-log" class="small text-white"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  (function(){
+    let dbgMinimums = {};
+    const DBG_PLATFORMS = ["Instagram", "TikTok", "YouTube", "X (Twitter)"];
+
+    function setResult(ok, resultEl, logEl, logText){
+      if (resultEl){
+        resultEl.textContent = ok ? '✓' : '✗';
+        resultEl.className = ok ? 'text-success fw-bold' : 'text-danger fw-bold';
+      }
+      if (logEl){
+        logEl.textContent = (typeof logText === 'string') ? logText : JSON.stringify(logText, null, 2);
+      }
+    }
+    async function postJson(url, body){
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body||{}) });
+      return await res.json();
+    }
+    function bind(btnId, resultId, logId, endpoint, payloadFn){
+      const btn = document.getElementById(btnId);
+      const resultEl = document.getElementById(resultId);
+      const logEl = document.getElementById(logId);
+      if (!btn) return;
+      btn.addEventListener('click', async ()=>{
+        try{
+          if (resultEl){ resultEl.textContent = '...'; resultEl.className = 'text-info fw-bold'; }
+          const payload = payloadFn ? payloadFn() : {};
+          const data = await postJson(endpoint, payload);
+          const ok = !!(data && data.success);
+          setResult(ok, resultEl, logEl, data && (data.log||data.message) ? (data.log||data.message) : data);
+        }catch(e){
+          setResult(false, resultEl, logEl, 'Error: ' + (e?.message||e));
+        }
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      // Ensure backend opens a persistent debug window
+      bind('dbg-open-browser-btn','dbg-open-browser-result','dbg-open-browser-log','/api/debug/open_browser');
+      bind('dbg-nav-login-btn','dbg-nav-login-result','dbg-nav-login-log','/api/debug/nav_login');
+      // Full automation login (same as automations)
+      bind('dbg-select-google-btn','dbg-select-google-result','dbg-select-google-log','/api/debug/login');
+      bind('dbg-enter-email-btn','dbg-enter-email-result','dbg-enter-email-log','/api/debug/enter_email');
+      bind('dbg-continue-email-btn','dbg-continue-email-result','dbg-continue-email-log','/api/debug/continue_email');
+      bind('dbg-enter-password-btn','dbg-enter-password-result','dbg-enter-password-log','/api/debug/enter_password');
+      bind('dbg-continue-password-btn','dbg-continue-password-result','dbg-continue-password-log','/api/debug/continue_password');
+      bind('dbg-verify-dashboard-btn','dbg-verify-dashboard-result','dbg-verify-dashboard-log','/api/debug/verify_dashboard');
+
+      // Populate Submit Promo controls
+      (async function initSubmitPromo(){
+        try {
+          const res = await fetch('/api/config/minimums');
+          dbgMinimums = await res.json();
+        } catch(e) {
+          console.warn('Failed to load minimums for debug submit promo.', e);
+          dbgMinimums = {};
+        }
+
+        const platSel = document.getElementById('dbg-platform');
+        const engSel = document.getElementById('dbg-engagement');
+        const qtyInput = document.getElementById('dbg-quantity');
+
+        if (platSel && platSel.options.length === 0) {
+          DBG_PLATFORMS.forEach(p => {
+            const opt = document.createElement('option');
+            opt.value = p;
+            opt.textContent = p;
+            platSel.appendChild(opt);
+          });
+        }
+
+        function updateEngagements(){
+          const platform = platSel.value;
+          const igEngagements = ["Likes","Views","Saves","Shares","Reach/Impressions"]; // Simplified set used on Single Promo
+          const defaultEngagements = igEngagements; // For now use same list for other platforms
+          const list = defaultEngagements;
+          engSel.innerHTML = '';
+          list.forEach(e => {
+            const opt = document.createElement('option');
+            opt.value = e;
+            opt.textContent = e;
+            engSel.appendChild(opt);
+          });
+          updateMinQty();
+        }
+
+        function updateMinQty(){
+          const platform = platSel.value;
+          const engagement = engSel.value;
+          const key = "('"+platform+"', '"+engagement+"')";
+          const min = dbgMinimums[key];
+          if (typeof min === 'number') {
+            qtyInput.min = String(min);
+            if (Number(qtyInput.value||0) < min) qtyInput.value = String(min);
+          }
+        }
+
+        platSel.addEventListener('change', updateEngagements);
+        engSel.addEventListener('change', updateMinQty);
+        updateEngagements();
+
+        bind('dbg-submit-promo-btn','dbg-submit-promo-result','dbg-submit-promo-log','/api/debug/submit_promo', function(){
+          const platform = platSel.value;
+          const engagement = engSel.value;
+          const link = (document.getElementById('dbg-link')?.value||'').trim();
+          const quantity = Number(document.getElementById('dbg-quantity')?.value||0);
+          return { platform, engagement, link, quantity };
+        });
+      })();
+    });
+  })();
+</script>
+{% endblock %}

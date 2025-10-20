@@ -43,6 +43,20 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- CORE HELPER FUNCTIONS (Define BEFORE first use) ---
 
+    // --- Global readiness flags and updater for top status ---
+    let singleReady = false;
+    let promoReady = false;
+
+    function updateGlobalReadyStatus() {
+        const statusAreaId = 'status-text';
+        const statusMessageId = 'status-text';
+        if (singleReady && promoReady) {
+            showStatus('Ready', 'success', statusAreaId, statusMessageId);
+        } else {
+            showStatus('Not Ready', 'danger', statusAreaId, statusMessageId);
+        }
+    }
+
     // Generic API Call Helper
     async function apiCall(endpoint, method = 'GET', body = null) {
         console.log(`API Call: ${method} ${endpoint}`, body ? body : '');
@@ -199,24 +213,150 @@ document.addEventListener('DOMContentLoaded', function() {
         element.className = `status-display text-${type}`; // Use Bootstrap text color classes
         console.log(`Temp Status (${type}) for [${elementId}]: ${message}`);
 
-        // Set new timeout if duration > 0
-        if (duration > 0) {
-            tempStatusTimeouts[elementId] = setTimeout(() => {
-                clearTemporaryStatus(element); // Use helper to clear
-             }, duration);
-        }
+        // Set timeout to clear the message
+        tempStatusTimeouts[elementId] = setTimeout(() => {
+            clearTemporaryStatus(element);
+        }, duration);
     }
-    
-    // Clear temporary status for an element
+
+    // Clear temporary status from an element
      function clearTemporaryStatus(element) {
         if (!element) return;
+        element.textContent = '';
+        element.className = 'status-display'; // Reset to base class
+        // Clear timeout if it exists
         const elementId = element.id;
         if (elementId && tempStatusTimeouts[elementId]) {
             clearTimeout(tempStatusTimeouts[elementId]);
             delete tempStatusTimeouts[elementId];
         }
-        element.textContent = '';
-        element.className = 'status-display';
+    }
+
+    // --- Job Rows and Per-Job Polling (for async promos) ---
+    const jobPollers = {}; // jobId -> intervalId
+
+    function createJobRow(containerId, jobId, label, link) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        const row = document.createElement('div');
+        row.className = 'd-flex align-items-center justify-content-between border rounded p-2 mb-2';
+        row.id = `job-${jobId}`;
+        row.innerHTML = `
+            <div class="text-white">
+                <strong>${label}</strong>
+                <div class="small">Job: ${jobId}</div>
+                ${link ? `<div class=\"small\"><a href=\"${link}\" target=\"_blank\" rel=\"noopener\" class=\"text-primary text-decoration-underline\">${link}</a></div>` : ''}
+                <div id="job-step-${jobId}" class="small text-info">Status: pending</div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+                <div id="job-status-${jobId}" class="badge bg-secondary">pending</div>
+                <button id="stop-job-${jobId}" class="btn btn-sm btn-outline-danger">Stop</button>
+            </div>
+        `;
+        container.prepend(row);
+
+        // Attach per-job Stop handler
+        const stopBtn = document.getElementById(`stop-job-${jobId}`);
+        const statusChip = document.getElementById(`job-status-${jobId}`);
+        if (stopBtn) {
+            stopBtn.addEventListener('click', async () => {
+                try {
+                    stopBtn.disabled = true;
+                    if (statusChip) {
+                        statusChip.className = 'badge bg-warning';
+                        statusChip.textContent = 'stopping';
+                    }
+                    const res = await apiCall('/api/stop_promo', 'POST', { job_id: jobId });
+                    if (!(res && res.status === 'success')) {
+                        // Re-enable if stop failed
+                        stopBtn.disabled = false;
+                        if (statusChip) {
+                            statusChip.className = 'badge bg-warning';
+                            statusChip.textContent = 'stop_failed';
+                        }
+                    }
+                } catch (e) {
+                    // Error path: re-enable and mark
+                    stopBtn.disabled = false;
+                    if (statusChip) {
+                        statusChip.className = 'badge bg-warning';
+                        statusChip.textContent = 'stop_error';
+                    }
+                }
+            });
+        }
+    }
+
+    async function pollJob(jobId, onUpdate, onDone) {
+        try {
+            const data = await apiCall(`/api/job_status/${jobId}`);
+            if (data && data.success) {
+                const status = (data.status || '').toLowerCase();
+                onUpdate(status, data.message);
+                if (['success','failed','stopped'].includes(status)) {
+                    onDone(status, data.message);
+                    return false; // stop
+                }
+                return true; // keep polling
+            } else {
+                onDone('unknown', data && data.error ? data.error : 'Not Found');
+                return false;
+            }
+        } catch (e) {
+            onUpdate('warning', `Error polling: ${e.message}`);
+            return true; // transient, continue polling
+        }
+    }
+
+    function startPerJobPolling(jobId) {
+        const statusChip = document.getElementById(`job-status-${jobId}`);
+        const stepEl = document.getElementById(`job-step-${jobId}`);
+        const stopBtn = document.getElementById(`stop-job-${jobId}`);
+        const intervalId = setInterval(async () => {
+            const keep = await pollJob(
+                jobId,
+                (status, message) => {
+                    if (statusChip) {
+                        const map = {success:'bg-success', failed:'bg-danger', stopped:'bg-warning', running:'bg-info', pending:'bg-secondary', warning:'bg-warning'};
+                        statusChip.className = `badge ${map[status]||'bg-secondary'}`;
+                        statusChip.textContent = status;
+                    }
+                    if (stepEl) {
+                        // Prefer server-provided message; fallback to status
+                        let msg = (message && typeof message === 'string') ? message : status;
+                        // Optional normalization example
+                        if (/logging into doge?hype/i.test(msg)) {
+                            msg = 'navigating to dogehype.com/login';
+                        }
+                        stepEl.textContent = `Status: ${msg}`;
+                    }
+                    // If finished, remove Stop button; if stopping, disable it
+                    if (stopBtn) {
+                        if (status === 'stopped' || status === 'failed' || status === 'success') {
+                            stopBtn.remove();
+                        } else if (status === 'stopping') {
+                            stopBtn.disabled = true;
+                        }
+                    }
+                },
+                () => {
+                    clearInterval(intervalId);
+                    delete jobPollers[jobId];
+                    if (stopBtn) {
+                        // On completion, remove the Stop button entirely
+                        try { stopBtn.remove(); } catch (e) { /* ignore */ }
+                    }
+                }
+            );
+            if (!keep) {
+                clearInterval(intervalId);
+                delete jobPollers[jobId];
+                if (stopBtn) {
+                    try { stopBtn.remove(); } catch (e) { /* ignore */ }
+                }
+            }
+        }, 3000);
+        jobPollers[jobId] = intervalId;
     }
     
     // Format ISO datetime string
@@ -238,7 +378,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Action Functions (Define BEFORE they are attached as listeners) ---
     // Start Single Promotion (Single Promo Section Specific)
-    function startSinglePromotion() {
+    async function startSinglePromotion() {
         console.log("startSinglePromotion button clicked");
         const platformSelect = document.getElementById('platform-select');
         const engagementSelect = document.getElementById('engagement-select');
@@ -258,6 +398,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const engagement = engagementSelect.value;
         const link = linkInput.value.trim();
         const quantity = quantityInput.value.trim();
+        // Retrieve selected service (set when user picks from flyout)
+        let selectedService = null;
+        try {
+            if (engagementSelect && engagementSelect.dataset && engagementSelect.dataset.selectedService) {
+                selectedService = JSON.parse(engagementSelect.dataset.selectedService);
+            }
+        } catch (_) { selectedService = null; }
 
         if (!platform || !engagement) {
             showStatus("Please select Platform and Engagement type.", 'warning', statusAreaId, statusMessageId, 3000);
@@ -269,6 +416,25 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (!quantity) {
             showStatus("Please enter the Quantity for the promotion.", 'warning', statusAreaId, statusMessageId, 3000);
+            return;
+        }
+
+        // Auto-pick the only service for this engagement if none explicitly selected
+        if (!selectedService) {
+            try {
+                const services = await loadServicesByCategory(platform, engagement);
+                if (services && services.length > 0) {
+                    selectedService = services[0];
+                    // Persist for UI consistency
+                    try { engagementSelect.dataset.selectedService = JSON.stringify(selectedService); } catch(_) {}
+                    // Also update bounds/cost
+                    setSinglePromoQuantityBoundsFromService(selectedService);
+                    updateSingleCostDisplay(selectedService);
+                }
+            } catch (e) { /* ignore */ }
+        }
+        if (!selectedService) {
+            showStatus("No service available for this engagement.", 'danger', statusAreaId, statusMessageId, 4000);
             return;
         }
 
@@ -284,50 +450,55 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Minimum Quantity Check
-        const key = "('" + platform + "', '" + engagement + "')";
-        const minQty = minimumQuantities[key];
-        if (minQty !== undefined && quantityNum < minQty) {
-             showStatus(`Minimum quantity for ${platform} ${engagement} is ${minQty}.`, 'warning', statusAreaId, statusMessageId, 4000);
-             return;
+        // Strict per-service min/max validation (from CSV via selectedService)
+        const svcMin = (selectedService.min_qty != null) ? parseInt(selectedService.min_qty, 10) : null;
+        const svcMax = (selectedService.max_qty != null) ? parseInt(selectedService.max_qty, 10) : null;
+        if (svcMin != null && quantityNum < svcMin) {
+            showStatus(`Minimum quantity for this service is ${svcMin}.`, 'warning', statusAreaId, statusMessageId, 4000);
+            return;
+        }
+        if (svcMax != null && quantityNum > svcMax) {
+            showStatus(`Maximum quantity for this service is ${svcMax}.`, 'warning', statusAreaId, statusMessageId, 4000);
+            return;
         }
 
-        showStatus(`Scheduling single promo: ${quantity} ${engagement} for ${link}...`, 'info', statusAreaId, statusMessageId);
-        disableActionButtons(); // Disable both single and profile buttons
+        showStatus(`Scheduling single promo: ${quantity} of ${engagement} via service #${selectedService.service_id}...`, 'info', statusAreaId, statusMessageId);
 
-        apiCall('/api/start_single_promo', 'POST', { platform, engagement, link, quantity: quantityNum })
+        apiCall('/api/start_single_promo_by_service', 'POST', { 
+                platform, 
+                engagement, 
+                service_id: selectedService.service_id, 
+                link, 
+                quantity: quantityNum 
+            })
             .then(data => {
                 if (data.success && data.job_id) {
-                    currentProfileJobId = data.job_id; // Reuse the same variable for tracking active job
+                    const jobId = data.job_id;
                     showStatus(data.message || 'Single promo scheduled.', 'info', statusAreaId, statusMessageId);
-                    // Start polling if needed (consider if single promos need polling)
-                    // startStatusPolling(currentProfileJobId); 
-                    // For single, maybe just show success/fail and re-enable?
-                    showStatus(`Job ${currentProfileJobId} scheduled successfully.`, 'success', statusAreaId, statusMessageId, 5000);
-                     handleFinalJobStatus(currentProfileJobId); // Directly treat as finished for now
+                    // Create per-job row and start polling that job only
+                    const svcName = (selectedService.name || ((selectedService.provider_label || selectedService.provider) + ' #' + selectedService.service_id));
+                    createJobRow('single-promo-jobs', jobId, `Single Promo: ${engagement} — ${svcName}`, link);
+                    startPerJobPolling(jobId);
                 } else {
                     showStatus(data.error || 'Failed to schedule single promo.', 'danger', statusAreaId, statusMessageId);
-                    enableActionButtons();
                 }
             })
             .catch(error => {
                  // API call helper already shows status
-                 enableActionButtons();
-             });
+            });
     }
 
     // Start Profile-Based Promotion (Promo Page Specific)
-    function startProfilePromotion(profileName, link) { // Pass params directly
+    function startProfilePromotion(profileName, link, platform) { // Pass params directly
         console.log("startProfilePromotion called");
         const statusAreaId = 'promo-status-area';
         const statusMessageId = 'promo-status-message';
         const stopBtn = document.getElementById('stop-profile-btn');
 
         // Validation already done in the event listener
-        showStatus(`Scheduling profile promo: '${profileName}' for ${link}...`, 'info', statusAreaId, statusMessageId);
-        disableActionButtons();
+        showStatus(`Scheduling profile promo: '${profileName}' (${platform}) for ${link}...`, 'info', statusAreaId, statusMessageId);
 
-        apiCall('/api/start_promo', 'POST', { profile_name: profileName, link: link })
+        apiCall('/api/start_promo', 'POST', { profile_name: profileName, link: link, platform: platform })
              .then(data => {
                 if (data.success && data.job_id) {
                     currentProfileJobId = data.job_id;
@@ -336,12 +507,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     startStatusPolling(currentProfileJobId);
                 } else {
                     showStatus(data.error || 'Failed to schedule profile promo.', 'danger', statusAreaId, statusMessageId);
-                    enableActionButtons(); // Re-enable run button if scheduling failed
                 }
             })
             .catch(error => {
                  // API call helper already shows status
-                 enableActionButtons();
             });
     }
     
@@ -481,6 +650,487 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // --- Services (CSV-backed) helpers ---
+    async function loadPlatformsFromServer() {
+        const res = await apiCall('/api/services/platforms');
+        if (res && res.success) return res.platforms || [];
+        return [];
+    }
+
+    async function loadEngagementsFromServer(platform) {
+        const res = await apiCall(`/api/services/engagements?platform=${encodeURIComponent(platform)}`);
+        if (res && res.success) return res.engagements || [];
+        return [];
+    }
+
+    async function loadServicesByCategory(platform, engagement) {
+        const url = `/api/services/by_category?platform=${encodeURIComponent(platform)}&engagement=${encodeURIComponent(engagement)}`;
+        const res = await apiCall(url);
+        if (res && res.success) return res.services || [];
+        return [];
+    }
+
+    // Apply per-service quantity bounds to Single Promo input
+    function setSinglePromoQuantityBoundsFromService(svc) {
+        const qtyInput = document.getElementById('quantity-input');
+        if (!qtyInput || !svc) return;
+        const minQ = (svc.min_qty != null) ? parseInt(svc.min_qty, 10) : null;
+        const maxQ = (svc.max_qty != null) ? parseInt(svc.max_qty, 10) : null;
+        // Set attributes
+        if (minQ != null) qtyInput.min = String(minQ); else qtyInput.removeAttribute('min');
+        if (maxQ != null) qtyInput.max = String(maxQ); else qtyInput.removeAttribute('max');
+        // Adjust current value into range if set
+        const cur = parseInt(qtyInput.value || '');
+        if (!isNaN(cur)) {
+            let adj = cur;
+            if (minQ != null && adj < minQ) adj = minQ;
+            if (maxQ != null && adj > maxQ) adj = maxQ;
+            qtyInput.value = String(adj);
+        }
+        // Set placeholder to show bounds
+        const minTxt = (minQ != null) ? minQ : '';
+        const maxTxt = (maxQ != null) ? maxQ : '';
+        if (minTxt !== '' || maxTxt !== '') {
+            qtyInput.placeholder = `${minTxt !== '' ? minTxt : ''}${(minTxt !== '' || maxTxt !== '') ? ' - ' : ''}${maxTxt !== '' ? maxTxt : ''}`.trim();
+        }
+        // Immediately refresh cost display reflecting any adjusted value
+        try { updateSingleCostDisplay(svc); } catch(_) {}
+    }
+
+    function clearSinglePromoQuantityBounds() {
+        const qtyInput = document.getElementById('quantity-input');
+        if (!qtyInput) return;
+        qtyInput.removeAttribute('min');
+        qtyInput.removeAttribute('max');
+        qtyInput.placeholder = '';
+    }
+
+    // --- Cost helpers ---
+    function formatCurrency(val, digits = 6) {
+        if (val == null || isNaN(val)) return '-';
+        try { return `$${Number(val).toFixed(digits)}`; } catch { return '-'; }
+    }
+
+    function updateSingleCostDisplay(selectedService = null) {
+        const el = document.getElementById('single-cost-display');
+        const qtyInput = document.getElementById('quantity-input');
+        const engagementSelect = document.getElementById('engagement-select');
+        if (!el) return;
+        // Resolve selected service from dataset if not passed
+        if (!selectedService && engagementSelect && engagementSelect.dataset && engagementSelect.dataset.selectedService) {
+            try { selectedService = JSON.parse(engagementSelect.dataset.selectedService); } catch(_) { selectedService = null; }
+        }
+        if (!selectedService) {
+            el.textContent = '';
+            return;
+        }
+        const rate = (selectedService.rate_per_1k != null) ? parseFloat(selectedService.rate_per_1k) : null;
+        const qty = qtyInput ? parseInt(qtyInput.value || '0', 10) : 0;
+        const cost = (rate != null && !isNaN(qty)) ? (rate * qty / 1000.0) : null;
+        // Show only the total cost amount for Single Promo preview
+        el.textContent = (cost != null) ? `Total Cost: ${formatCurrency(cost)}` : '';
+    }
+
+    function clearSingleCostDisplay() {
+        const el = document.getElementById('single-cost-display');
+        if (el) el.textContent = '';
+    }
+
+    // CSV is source of truth. No hardcoded fallback engagements.
+    function getFallbackEngagements(_platform) {
+        return [];
+    }
+
+    function populateSelectOptions(selectEl, options, { includePlaceholder = true, placeholderText = '-- Select --' } = {}) {
+        if (!selectEl) return;
+        while (selectEl.firstChild) selectEl.removeChild(selectEl.firstChild);
+        if (includePlaceholder) {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = placeholderText;
+            selectEl.appendChild(opt);
+        }
+        options.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = v;
+            selectEl.appendChild(opt);
+        });
+    }
+
+    // --- Services Flyout UI ---
+    let currentFlyoutEl = null;
+    function closeFlyout() {
+        if (currentFlyoutEl && currentFlyoutEl.parentNode) {
+            currentFlyoutEl.parentNode.removeChild(currentFlyoutEl);
+        }
+        currentFlyoutEl = null;
+        document.removeEventListener('click', onDocClickClose);
+        document.removeEventListener('keydown', onEscClose);
+    }
+    function onDocClickClose(e) {
+        if (!currentFlyoutEl) return;
+        if (currentFlyoutEl.contains(e.target)) return;
+        closeFlyout();
+    }
+    function onEscClose(e) {
+        if (e.key === 'Escape') closeFlyout();
+    }
+    function positionFlyout(anchor, flyout) {
+        const rect = anchor.getBoundingClientRect();
+        const top = rect.top + window.scrollY;
+        const left = rect.right + window.scrollX + 8; // show to the right
+        flyout.style.top = `${top}px`;
+        flyout.style.left = `${left}px`;
+    }
+    function renderServicesFlyout(anchorEl, platform, engagement, services, onPick) {
+        // Auto-pick the first/only service; no UI flyout
+        closeFlyout();
+        const svc = (services && services.length > 0) ? services[0] : null;
+        if (svc && typeof onPick === 'function') {
+            onPick(svc);
+        }
+        return; // no DOM changes
+    }
+
+    async function showServicesFlyoutForSelect(platformEl, engagementEl) {
+        if (!platformEl || !engagementEl) return;
+        const platform = platformEl.value;
+        const engagement = engagementEl.value || engagementEl.options[engagementEl.selectedIndex]?.textContent;
+        if (!platform || !engagement) return;
+        let services = [];
+        try {
+            services = await loadServicesByCategory(platform, engagement);
+        } catch (e) { services = []; }
+        renderServicesFlyout(engagementEl, platform, engagement, services);
+    }
+
+    // --- Custom Engagement Dropdown (so we can anchor flyout to the hovered item) ---
+    function ensureCustomEngagementDropdown(selectEl, platformEl, idPrefix) {
+        if (!selectEl || !platformEl) return null;
+        // If already created, return elements
+        const existingBtn = document.getElementById(`${idPrefix}-eng-btn`);
+        const existingMenu = document.getElementById(`${idPrefix}-eng-menu`);
+        if (existingBtn && existingMenu) return { btn: existingBtn, menu: existingMenu };
+
+        // Hide the native select but keep it for form value and compatibility
+        selectEl.style.display = 'none';
+        selectEl.style.position = 'absolute';
+        selectEl.style.pointerEvents = 'none';
+        selectEl.style.opacity = '0';
+        const parent = selectEl.parentElement;
+        const wrap = document.createElement('div');
+        wrap.className = 'position-relative';
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'btn btn-secondary w-100';
+        btn.id = `${idPrefix}-eng-btn`;
+        btn.textContent = '-- Select Engagement --';
+        const menu = document.createElement('div');
+        menu.className = 'dropdown-menu show';
+        menu.id = `${idPrefix}-eng-menu`;
+        menu.style.display = 'none';
+        menu.style.position = 'absolute';
+        menu.style.zIndex = '1050';
+        menu.style.maxHeight = '320px';
+        menu.style.overflow = 'auto';
+        menu.style.width = '100%';
+
+        wrap.appendChild(btn);
+        wrap.appendChild(menu);
+        // Label to show chosen subcategory (service)
+        // Always create for logic consistency, but hide it for 'single' to avoid duplicate display
+        const subLabel = document.createElement('div');
+        subLabel.id = `${idPrefix}-eng-selected-sub`;
+        subLabel.className = 'text-muted small mt-1';
+        subLabel.textContent = '';
+        if (idPrefix === 'single' || idPrefix === 'modal') subLabel.style.display = 'none';
+        wrap.appendChild(subLabel);
+        // Place custom control right after the hidden select
+        selectEl.insertAdjacentElement('afterend', wrap);
+        console.log(`[CustomEngagement] Created custom control '${idPrefix}'`);
+
+        function openMenu() {
+            menu.style.display = 'block';
+            const rect = btn.getBoundingClientRect();
+            menu.style.top = `${btn.offsetTop + btn.offsetHeight}px`;
+            menu.style.left = `${btn.offsetLeft}px`;
+            document.addEventListener('click', onDocClickCloseMenu, { capture: true });
+        }
+        function closeMenu() {
+            menu.style.display = 'none';
+            document.removeEventListener('click', onDocClickCloseMenu, { capture: true });
+        }
+        function onDocClickCloseMenu(e) {
+            if (menu.contains(e.target) || btn.contains(e.target)) return;
+            closeMenu();
+        }
+        btn.addEventListener('click', () => {
+            if (menu.style.display === 'none') openMenu(); else closeMenu();
+        });
+
+        // Public API to set items
+        function setItems(engagements) {
+            // Clear
+            while (menu.firstChild) menu.removeChild(menu.firstChild);
+            if (!engagements || engagements.length === 0) {
+                const empty = document.createElement('div');
+                empty.className = 'dropdown-item disabled';
+                empty.textContent = 'No engagements';
+                menu.appendChild(empty);
+                btn.textContent = '-- Select Engagement --';
+                return;
+            }
+            engagements.forEach(eng => {
+                const item = document.createElement('a');
+                item.href = '#';
+                item.className = 'dropdown-item';
+                item.textContent = eng;
+                // Click -> select engagement and auto-pick first service
+                item.addEventListener('click', async (ev) => {
+                    ev.preventDefault();
+                    const platform = platformEl.value;
+                    if (!platform) return;
+                    selectEl.value = eng;
+                    let services = [];
+                    try { services = await loadServicesByCategory(platform, eng); } catch(e) { services = []; }
+                    const svc = (services && services.length > 0) ? services[0] : null;
+                    if (svc) {
+                        try { selectEl.dataset.selectedService = JSON.stringify(svc); } catch(_) {}
+                        const tierTxt = svc.tier ? ` [${svc.tier}]` : '';
+                        const svcName = (svc.name || ((svc.provider_label || svc.provider) + ' #' + svc.service_id));
+                        if (subLabel) subLabel.textContent = `${eng} — ${svcName}${tierTxt}`;
+                        btn.textContent = `${eng}${svcName ? ' — ' + svcName : ''}`;
+                        if (idPrefix === 'single') {
+                            setSinglePromoQuantityBoundsFromService(svc);
+                            updateSingleCostDisplay(svc);
+                        }
+                    } else {
+                        // Clear selection if none available
+                        try { delete selectEl.dataset.selectedService; } catch(_) {}
+                        if (subLabel) subLabel.textContent = `${eng}`;
+                        btn.textContent = `${eng}`;
+                    }
+                    try { if (typeof closeMenu === 'function') closeMenu(); } catch(_) {}
+                });
+                menu.appendChild(item);
+            });
+            // Restore selected service label if exists
+            if (selectEl.dataset.selectedService) {
+                try {
+                    const svc = JSON.parse(selectEl.dataset.selectedService);
+                    const svcName = (svc.name || ((svc.provider_label || svc.provider) + ' #' + svc.service_id));
+                    const eng = selectEl.value || '';
+                    if (eng) {
+                        subLabel.textContent = `${eng} — ${svcName}`;
+                        if (idPrefix === 'single') btn.textContent = `${eng} — ${svcName}`;
+                        // Ensure bounds and cost display reflect restored service
+                        if (idPrefix === 'single') {
+                            setSinglePromoQuantityBoundsFromService(svc);
+                            updateSingleCostDisplay(svc);
+                        }
+                    }
+                } catch (_) { /* ignore */ }
+            } else {
+                subLabel.textContent = '';
+            }
+        }
+
+        return { btn, menu, setItems };
+    }
+
+    // --- Single Promo page init ---
+    async function initializeSinglePromoPage() {
+        const platformSelect = document.getElementById('platform-select');
+        const engagementSelect = document.getElementById('engagement-select');
+        const runBtn = document.getElementById('start-single-promo-btn');
+        const qtyInput = document.getElementById('quantity-input');
+        if (!platformSelect || !engagementSelect || !runBtn) {
+            console.log('Single Promo elements not found; skipping initializeSinglePromoPage');
+            return;
+        }
+        // Create custom engagement dropdown so we can anchor flyout to items
+        const singleCustom = (typeof ensureCustomEngagementDropdown === 'function')
+            ? ensureCustomEngagementDropdown(engagementSelect, platformSelect, 'single')
+            : null;
+
+        // Populate platforms
+        try {
+            let platforms = await loadPlatformsFromServer();
+            if (!platforms || platforms.length === 0) {
+                console.warn('Platforms API returned empty list. Using fallback set.');
+                platforms = ['Instagram','TikTok','YouTube','X (Twitter)','Spotify'];
+            }
+            populateSelectOptions(platformSelect, platforms);
+            // Auto-load engagements when platform changes
+            platformSelect.addEventListener('change', async () => {
+                const p = platformSelect.value;
+                if (!p) {
+                    populateSelectOptions(engagementSelect, []);
+                    if (singleCustom && singleCustom.setItems) singleCustom.setItems([]);
+                    // Reset visual state
+                    const lbl = document.getElementById('single-eng-selected-sub');
+                    if (lbl) lbl.textContent = '';
+                    const btnEl = document.getElementById('single-eng-btn');
+                    if (btnEl) btnEl.textContent = '-- Select Engagement --';
+                    return;
+                }
+                const engs = await loadEngagementsFromServer(p);
+                populateSelectOptions(engagementSelect, engs);
+                if (singleCustom && singleCustom.setItems) singleCustom.setItems(engs);
+                // Reset selection label/button on platform change
+                try { delete engagementSelect.dataset.selectedService; } catch(_) {}
+                clearSinglePromoQuantityBounds();
+                const lbl = document.getElementById('single-eng-selected-sub');
+                if (lbl) lbl.textContent = '';
+                const btnEl = document.getElementById('single-eng-btn');
+                if (btnEl) btnEl.textContent = '-- Select Engagement --';
+            });
+            // If first option exists, trigger change to load engagements
+            if (platforms && platforms.length > 0) {
+                platformSelect.value = '';
+                // Select first real option
+                platformSelect.selectedIndex = 1; // 0 is placeholder
+                const engs = await loadEngagementsFromServer(platformSelect.value);
+                populateSelectOptions(engagementSelect, engs);
+                if (singleCustom && singleCustom.setItems) singleCustom.setItems(engs);
+                // Clear any prior selection
+                try { delete engagementSelect.dataset.selectedService; } catch(_) {}
+                clearSinglePromoQuantityBounds();
+                const lbl2 = document.getElementById('single-eng-selected-sub');
+                if (lbl2) lbl2.textContent = '';
+                const btn2 = document.getElementById('single-eng-btn');
+                if (btn2) btn2.textContent = '-- Select Engagement --';
+            }
+        } catch (e) {
+            console.error('Failed to populate platforms/engagements:', e);
+            // Last-chance fallback
+            populateSelectOptions(platformSelect, ['Instagram','TikTok','YouTube','X (Twitter)','Spotify']);
+        }
+
+        // Attach Run handler
+        runBtn.addEventListener('click', startSinglePromotion);
+        // Recalculate Single Promo cost on any quantity change
+        const qtyInput2 = document.getElementById('quantity-input');
+        if (qtyInput2) {
+            const recalc = () => updateSingleCostDisplay();
+            qtyInput2.addEventListener('input', recalc);
+            qtyInput2.addEventListener('change', recalc);
+            qtyInput2.addEventListener('keyup', recalc);
+        }
+        singleReady = true;
+        updateGlobalReadyStatus();
+    }
+
+    // --- Promo page init (profile-based run/stop buttons) ---
+    async function initializePromoPage(profiles) {
+        const runBtn = document.getElementById('start-profile-promo-btn');
+        const stopBtn = document.getElementById('stop-profile-btn');
+        const profileSelect = document.getElementById('profile-select-promo');
+        const linkInput = document.getElementById('profile-link-input');
+        // Auto cost preview
+        async function updateAutoCost() {
+            const profileName = profileSelect ? profileSelect.value : '';
+            const el = document.getElementById('auto-cost-display');
+            if (!el) return;
+            if (!profileName) { el.textContent=''; return; }
+            try {
+                const payload = { profile_name: profileName };
+                const res = await apiCall('/api/estimate/auto_cost', 'POST', payload);
+                if (res && res.success) {
+                    el.textContent = `Estimated Total Cost: ${formatCurrency(res.total_cost)} (${res.loops} loop(s))`;
+                } else {
+                    el.textContent = '';
+                }
+            } catch (e) {
+                if (el) el.textContent = '';
+            }
+        }
+        if (profileSelect) profileSelect.addEventListener('change', updateAutoCost);
+        setTimeout(updateAutoCost, 0);
+
+        if (runBtn) {
+            runBtn.addEventListener('click', () => {
+                const profileName = profileSelect ? profileSelect.value : '';
+                const link = linkInput ? (linkInput.value || '').trim() : '';
+                if (!profileName) {
+                    showStatus('Please select a profile.', 'warning', 'promo-status-area', 'promo-status-message', 3000);
+                    return;
+                }
+                if (!link || !link.startsWith('https://')) {
+                    showStatus('Please enter a valid https:// link.', 'warning', 'promo-status-area', 'promo-status-message', 3000);
+                    return;
+                }
+                startProfilePromotion(profileName, link);
+            });
+        }
+        if (stopBtn) {
+            stopBtn.addEventListener('click', async () => {
+                if (!currentProfileJobId) return;
+                try {
+                    stopBtn.disabled = true;
+                    const res = await apiCall('/api/stop_promo', 'POST', { job_id: currentProfileJobId });
+                    if (!(res && res.status === 'success')) stopBtn.disabled = false;
+                } catch (e) {
+                    stopBtn.disabled = false;
+                }
+            });
+        }
+        promoReady = true;
+        updateGlobalReadyStatus();
+    }
+
+    // --- Balances page init ---
+    async function initializeBalancesPage() {
+        const providers = ['justanotherpanel', 'peakerr', 'smmkings', 'mysocialsboost'];
+        const timers = {};
+
+        async function fetchBalance(provider) {
+            try {
+                const data = await apiCall(`/api/balances/${provider}`);
+                const td = document.getElementById(`balance-value-${provider}`);
+                if (td) {
+                    if (data && data.success && data.data) {
+                        const bal = data.data.balance || data.data.Balance || data.data.raw || '—';
+                        const cur = data.data.currency || '';
+                        td.textContent = cur ? `${bal} ${cur}` : `${bal}`;
+                    } else {
+                        td.textContent = 'Error';
+                    }
+                }
+            } catch (e) {
+                const td = document.getElementById(`balance-value-${provider}`);
+                if (td) td.textContent = 'Error';
+            }
+        }
+
+        function startAuto(provider) {
+            const intervalInput = document.getElementById(`interval-${provider}`);
+            const enabled = document.getElementById(`auto-${provider}`)?.checked;
+            if (timers[provider]) {
+                clearInterval(timers[provider]);
+                delete timers[provider];
+            }
+            if (!enabled) return;
+            let sec = 60;
+            try { sec = Math.max(10, parseInt(intervalInput.value, 10) || 60); } catch (e) { sec = 60; }
+            timers[provider] = setInterval(() => fetchBalance(provider), sec * 1000);
+        }
+
+        // Wire buttons and switches
+        providers.forEach(p => {
+            const btn = document.getElementById(`btn-fetch-${p}`);
+            if (btn) btn.addEventListener('click', () => fetchBalance(p));
+            const chk = document.getElementById(`auto-${p}`);
+            if (chk) chk.addEventListener('change', () => startAuto(p));
+            const inp = document.getElementById(`interval-${p}`);
+            if (inp) inp.addEventListener('change', () => startAuto(p));
+        });
+
+        // Initial one-shot fetch for all
+        providers.forEach(p => fetchBalance(p));
+    }
+
     // --- Run Initialization (FIRST IIFE) --- 
     (async () => {
         const statusAreaId = 'status-text'; // ID of the status div
@@ -489,8 +1139,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const loadedProfiles = await initializeAppCommon(); // Loads data into caches, GETS PROFILES
             
             // --- Page Detection (Moved Here) ---
-            const isOnPromoPage = !!document.getElementById('start-profile-promo-btn'); // Note: This ID seems incorrect based on HTML (should be start-profile-promo-btn?)
+            const isOnPromoPage = !!document.getElementById('start-profile-promo-btn'); // Promo page detection
             const isOnMonitorPage = !!document.getElementById('save-monitoring-settings-btn');
+            const isOnBalancesPage = !!document.getElementById('balances-root');
             const isOnProfilePage = !!document.getElementById('add-profile-btn'); 
             const isOnHistoryPage = !!document.getElementById('history-list'); // Check for History page
             console.log(`Page Check (Inside IIFE): Promo=${isOnPromoPage}, Monitor=${isOnMonitorPage}, Profile=${isOnProfilePage}, History=${isOnHistoryPage}`);
@@ -527,6 +1178,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 await initializeMonitorPage(loadedProfiles); // Needs loaded profiles for dropdown
                 // Show status after init completes
                 // setTimeout(() => { showStatus("Monitor Page Ready", "success", "monitor-page-status-area", "monitor-page-status-message", 3000); }, 10); // <<< REMOVED THIS LINE
+            } else if (isOnBalancesPage) {
+                console.log("Running Balances Page specific init...");
+                await initializeBalancesPage();
             } else if (isOnProfilePage) { 
                  console.log("Running Profile Page specific init...");
                  // Pass loaded profiles to avoid race condition
@@ -541,7 +1195,30 @@ document.addEventListener('DOMContentLoaded', function() {
                  // setTimeout(() => { showStatus("Profile Page Ready", "success", "profile-page-status-area", "profile-page-status-message", 3000); }, 10); // <<< REMOVED THIS LINE
             } else if (isOnHistoryPage) {
                 console.log("Running History Page specific init...");
-                // initializeHistoryPage(); // Moved to global scope
+                // Live status polling for History
+                function applyStatusClass(cell, status) {
+                    const base = 'status-cell';
+                    cell.className = `${base} status-${(status||'').toLowerCase()}`;
+                    cell.textContent = (status||'unknown').charAt(0).toUpperCase() + (status||'unknown').slice(1);
+                }
+                async function pollHistoryStatuses() {
+                    try {
+                        const res = await apiCall('/api/history/live_status?limit=30');
+                        if (res && res.success && Array.isArray(res.results)) {
+                            res.results.forEach(r => {
+                                const row = document.querySelector(`tr[data-job-id="${r.job_id}"]`);
+                                if (!row) return;
+                                const cell = row.querySelector('.status-cell');
+                                if (!cell) return;
+                                applyStatusClass(cell, r.aggregate_status);
+                            });
+                        }
+                    } catch (e) { /* ignore transient */ }
+                }
+                // Start interval
+                setInterval(pollHistoryStatuses, 15000);
+                // Prime once
+                pollHistoryStatuses();
             } else {
                 // Assuming it might be the index/single promo page if none of the others match specifically
                 console.log("Running on Index/Single Promo Page specific init (fallback)...");
@@ -549,9 +1226,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 // No specific dropdowns to populate here initially, handled globally now
             }
             
+            // --- Initialize Balance Display (on all pages that have it) --- REMOVED DUPLICATE
+            // This is now handled in the main initApp function
+            
             console.log(`Initialization and listeners setup finished.`);
-            // Update status to Ready on success
-            showStatus("Ready", "success", statusAreaId, statusMessageId); // Show Ready permanently
+            // Update global top status based on section readiness
+            updateGlobalReadyStatus();
 
         } catch (initError) {
              console.error("Critical error during app initialization:", initError);
@@ -565,36 +1245,36 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("Running initializePromoPage with profiles:", profiles);
 
         // Ensure data caches are populated (should be by initializeAppCommon)
-        // Can now use the passed-in profiles directly
         if (!profiles || Object.keys(profiles).length === 0) {
             console.warn("Profile data passed to initializePromoPage is empty.");
             showStatus("Failed to load profile data. Cannot populate dropdown.", 'warning', 'promo-status-area', 'promo-status-message');
-            // Maybe attempt to reload or show error?
-            // return; // Stop initialization if data is missing?
-        }
-        // Minimum quantities check (needed for engagement dropdown - though not directly used here)
-        if (!minimumQuantities || Object.keys(minimumQuantities).length === 0) {
-            console.warn("Minimum quantities not ready for Promo page init.");
-            // This might affect engagement dropdown if it were on this page
         }
 
-        // 1. Populate Dropdowns
-        // *** Ensure correct ID is used for the promo page dropdown ***
-        const profileSelectPromo = document.getElementById('profile-select-promo'); // <-- USE CORRECT ID
+        // 1) Populate profile dropdown
+        const profileSelectPromo = document.getElementById('profile-select-promo');
         if (profileSelectPromo) {
-            console.log("Found promo profile select dropdown (#profile-select-promo), populating...");
-            populateProfileDropdown(profileSelectPromo, profiles); // <-- Pass profiles data
-        } else {
-            console.error("Promo profile select dropdown (#profile-select-promo) not found.");
-            showStatus("UI Error: Profile selection element missing.", 'danger', 'promo-status-area', 'promo-status-message');
+            populateProfileDropdown(profileSelectPromo, profiles);
         }
-        
-        // Note: Engagement dropdown is typically part of the SINGLE promo section, not PROFILE promo.
-        // If you intended an engagement dropdown here, add its initialization.
-        // updateEngagementOptions(); // Populates based on platform (hardcoded IG for now)
-        // updateMinQuantityLabel(); // Updates placeholder based on selection
 
-        // 3. Attach Listeners for Profile Promo section
+        // 2) Populate platform dropdown from CSV with fallback (ensures Spotify shows)
+        const promoPlatformSelect = document.getElementById('promo-platform-select');
+        if (promoPlatformSelect) {
+            try {
+                let platforms = await loadPlatformsFromServer();
+                if (!platforms || platforms.length === 0) {
+                    platforms = ['Instagram','TikTok','YouTube','X (Twitter)','Spotify'];
+                }
+                populateSelectOptions(promoPlatformSelect, platforms);
+                if (platforms && platforms.length > 0) {
+                    promoPlatformSelect.selectedIndex = 1; // 0 is placeholder
+                }
+            } catch (e) {
+                console.error('Failed to populate Auto Promo platform list:', e);
+                populateSelectOptions(promoPlatformSelect, ['Instagram','TikTok','YouTube','X (Twitter)','Spotify']);
+            }
+        }
+
+        // 3) Attach Listeners for Profile Promo section
         const runProfileBtn = document.getElementById('start-profile-promo-btn');
         const stopProfileBtn = document.getElementById('stop-profile-btn');
         const promoLinkInput = document.getElementById('profile-link-input');
@@ -603,97 +1283,123 @@ document.addEventListener('DOMContentLoaded', function() {
             runProfileBtn.addEventListener('click', () => {
                 const profileName = profileSelectPromo.value;
                 const link = promoLinkInput.value.trim();
-
                 if (!profileName) {
-                    showStatus("Please select a promotion profile.", 'warning', 'promo-status-area', 'promo-status-message', 3000);
+                    showStatus('Please select a promotion profile.', 'warning', 'promo-status-area', 'promo-status-message', 3000);
                     return;
                 }
                 if (!link) {
-                    showStatus("Please enter the link for the profile promotion.", 'warning', 'promo-status-area', 'promo-status-message', 3000);
+                    showStatus('Please enter the link for the profile promotion.', 'warning', 'promo-status-area', 'promo-status-message', 3000);
                     return;
                 }
                 if (!link.toLowerCase().startsWith('https://')) {
-                     showStatus("Link must start with https://", 'warning', 'promo-status-area', 'promo-status-message', 3000);
-                     return;
+                    showStatus('Link must start with https://', 'warning', 'promo-status-area', 'promo-status-message', 3000);
+                    return;
                 }
-                startProfilePromotion(profileName, link);
+                const platform = promoPlatformSelect ? promoPlatformSelect.value : '';
+                if (!platform) {
+                    showStatus('Please select a platform.', 'warning', 'promo-status-area', 'promo-status-message', 3000);
+                    return;
+                }
+                startProfilePromotion(profileName, link, platform);
             });
         } else {
-             console.error("Could not find one or more required elements for profile promo form listeners.");
-             showStatus("UI Error: Profile promo form incomplete.", 'danger', 'promo-status-area', 'promo-status-message');
+            console.error('Could not find one or more required elements for profile promo form listeners.');
+            showStatus('UI Error: Profile promo form incomplete.', 'danger', 'promo-status-area', 'promo-status-message');
         }
-        
+
         if (stopProfileBtn) {
             stopProfileBtn.addEventListener('click', stopProfilePromotion);
-        } else {
-             console.error("Could not find stop profile promo button.");
         }
-        
-         // Show ready status AFTER setup
-        setTimeout(() => { showStatus("Promo Page Ready", "success", "promo-status-area", "promo-status-message", 3000); }, 100); 
+
+        promoReady = !!(runProfileBtn && profileSelectPromo && promoLinkInput);
+        updateGlobalReadyStatus();
     }
 
-    // --- Single Promo Page Specific Initialization (if separate or part of index) ---
+    // --- Single Promo Page Specific Initialization (ensure CSV-backed platforms incl. Spotify) ---
     async function initializeSinglePromoPage() {
-        console.log("Running initializeSinglePromoPage...");
-        // Ensure minimums are loaded (should be by initializeAppCommon)
-         if (!minimumQuantities || Object.keys(minimumQuantities).length === 0) {
-            console.warn("Minimum quantities not ready for Single Promo init.");
-            showStatus("Failed to load configuration. Engagement options may be incorrect.", 'warning', 'single-promo-status-area', 'single-promo-status-message');
-         }
-        
+        console.log('Running initializeSinglePromoPage (CSV-backed) ...');
+        if (!minimumQuantities || Object.keys(minimumQuantities).length === 0) {
+            console.warn('Minimum quantities not ready for Single Promo init.');
+            showStatus('Failed to load configuration. Engagement options may be incorrect.', 'warning', 'single-promo-status-area', 'single-promo-status-message');
+        }
+
         const platformSelect = document.getElementById('platform-select');
         const engagementSelect = document.getElementById('engagement-select');
         const singlePromoBtn = document.getElementById('start-single-promo-btn');
+        const qtyInput = document.getElementById('quantity-input');
+        if (!platformSelect || !engagementSelect || !singlePromoBtn) {
+            console.error('Could not find Single Promo elements.');
+            showStatus('UI Error: Single promo controls missing.', 'danger', 'single-promo-status-area', 'single-promo-status-message');
+            return;
+        }
 
-        if (platformSelect && engagementSelect) {
-            // 1. Populate platform dropdown (can be static or dynamic if needed)
-            // Assuming platforms are relatively static for now. Add options if empty.
-            console.log(`[InitSinglePromo] Before adding platforms, platformSelect.options.length = ${platformSelect.options.length}`); // Log length before check
-            if(platformSelect.options.length <= 1) { // Keep placeholder if exists
-                console.log("[InitSinglePromo] Condition (options.length <= 1) met. Adding platforms..."); // Log entry into block
-                platformSelect.innerHTML = ''; // Clear all options
+        // Create custom engagement dropdown to replace native select UI
+        const singleCustom = (typeof ensureCustomEngagementDropdown === 'function')
+            ? ensureCustomEngagementDropdown(engagementSelect, platformSelect, 'single')
+            : null;
 
-                const platforms = ["Instagram", "TikTok", "YouTube", "X (Twitter)"]; // Or get from config if needed
-                platforms.forEach(p => {
-                    console.log(`[InitSinglePromo] Attempting to add platform: ${p}`); // Log each platform
-                    const option = document.createElement('option');
-                    option.value = p;
-                    option.textContent = p;
-                    platformSelect.appendChild(option);
-                    console.log(`[InitSinglePromo] Successfully appended option for: ${p}`); // Log success
-                });
-            } else {
-                 console.log(`[InitSinglePromo] Condition (options.length <= 1) NOT met. Skipping platform add.`); // Log if skipped
+        try {
+            let platforms = await loadPlatformsFromServer();
+            if (!platforms || platforms.length === 0) {
+                platforms = ['Instagram','TikTok','YouTube','X (Twitter)','Spotify'];
             }
+            populateSelectOptions(platformSelect, platforms);
+            platformSelect.addEventListener('change', async () => {
+                const p = platformSelect.value;
+                if (!p) {
+                    populateSelectOptions(engagementSelect, []);
+                    if (singleCustom && singleCustom.setItems) singleCustom.setItems([]);
+                    const lbl = document.getElementById('single-eng-selected-sub');
+                    if (lbl) lbl.textContent = '';
+                    const btnEl = document.getElementById('single-eng-btn');
+                    if (btnEl) btnEl.textContent = '-- Select Engagement --';
+                    try { delete engagementSelect.dataset.selectedService; } catch(_) {}
+                    clearSinglePromoQuantityBounds();
+                    clearSingleCostDisplay();
+                    return;
+                }
+                let engs = [];
+                try { engs = await loadEngagementsFromServer(p); } catch (_) {}
+                populateSelectOptions(engagementSelect, engs);
+                if (singleCustom && singleCustom.setItems) singleCustom.setItems(engs);
+                try { delete engagementSelect.dataset.selectedService; } catch(_) {}
+                const lbl = document.getElementById('single-eng-selected-sub');
+                if (lbl) lbl.textContent = '';
+                const btnEl = document.getElementById('single-eng-btn');
+                if (btnEl) btnEl.textContent = '-- Select Engagement --';
+                clearSinglePromoQuantityBounds();
+                clearSingleCostDisplay();
+            });
 
-            // 2. Setup listener to update engagements when platform changes
-            platformSelect.addEventListener('change', updateEngagementOptions);
-            engagementSelect.addEventListener('change', updateMinQuantityLabel); // Update min label when engagement changes too
-            
-            console.log("[InitSinglePromo] Calling initial updateEngagementOptions...");
-            // Initial population of engagement based on default platform
-            updateEngagementOptions(); // Call once on load
-            updateMinQuantityLabel(); // Call once on load
-            
-        } else {
-             console.error("Could not find platform or engagement select dropdowns for single promo.");
-             showStatus("UI Error: Single promo dropdowns missing.", 'danger', 'single-promo-status-area', 'single-promo-status-message');
+            if (platforms && platforms.length > 0) {
+                platformSelect.selectedIndex = 1;
+                let engs = [];
+                try { engs = await loadEngagementsFromServer(platformSelect.value); } catch(_) {}
+                populateSelectOptions(engagementSelect, engs);
+                if (singleCustom && singleCustom.setItems) singleCustom.setItems(engs);
+                try { delete engagementSelect.dataset.selectedService; } catch(_) {}
+                const lbl2 = document.getElementById('single-eng-selected-sub');
+                if (lbl2) lbl2.textContent = '';
+                const btn2 = document.getElementById('single-eng-btn');
+                if (btn2) btn2.textContent = '-- Select Engagement --';
+                clearSinglePromoQuantityBounds();
+                clearSingleCostDisplay();
+            }
+        } catch (e) {
+            console.error('Failed to populate Single Promo:', e);
+            populateSelectOptions(platformSelect, ['Instagram','TikTok','YouTube','X (Twitter)','Spotify']);
         }
-        
-        // 4. Attach listener for single promo button
-        if (singlePromoBtn) {
-            singlePromoBtn.addEventListener('click', startSinglePromotion);
-        } else {
-            console.error("Could not find single promo button.");
-            showStatus("UI Error: Single promo button missing.", 'danger', 'single-promo-status-area', 'single-promo-status-message');
+
+        singlePromoBtn.addEventListener('click', startSinglePromotion);
+        // Recalculate Single Promo cost on any quantity change
+        if (qtyInput) {
+            const recalc = () => updateSingleCostDisplay();
+            qtyInput.addEventListener('input', recalc);
+            qtyInput.addEventListener('change', recalc);
+            qtyInput.addEventListener('keyup', recalc);
         }
-        
-        // Show ready status AFTER setup (assuming single promo elements exist)
-         const statusArea = document.getElementById('single-promo-status-area');
-         if (statusArea) {
-            setTimeout(() => { showStatus("Single Promo Section Ready", "success", "single-promo-status-area", "single-promo-status-message", 3000); }, 150); 
-         }
+        singleReady = true;
+        updateGlobalReadyStatus();
     }
 
 
@@ -1492,6 +2198,8 @@ document.addEventListener('DOMContentLoaded', function() {
                             header.remove();
                         }
                     }
+                    // Recalculate total cost after removal
+                    try { updateModalProfileCostEstimate(); } catch(_) {}
                 } else {
                     console.error("Could not find parent row to remove.");
                 }
@@ -1514,9 +2222,18 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const platform = platformSelect.value;
         const engagementType = engagementSelect.value;
+        // Require a specific service selection from the modal dropdown flyout
+        let selectedService = null;
+        if (engagementSelect && engagementSelect.dataset && engagementSelect.dataset.selectedService) {
+            try { selectedService = JSON.parse(engagementSelect.dataset.selectedService); } catch (_) { selectedService = null; }
+        }
 
         if (!engagementType) {
             alert("Please select an engagement type to add.");
+            return;
+        }
+        if (!selectedService || !selectedService.service_id) {
+            alert("Please pick a specific service for the selected engagement (hover/click an engagement and choose a service from the flyout).");
             return;
         }
 
@@ -1546,11 +2263,36 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         // -------
 
-        const minQtyKey = "('" + platform + "', '" + engagementType + "')";
-        const minRequired = minimumQuantities[minQtyKey] || 1;
+        // Determine UI minimum from selected service if available, else fallback to configured minimums
+        let minRequired = 1;
+        if (selectedService && selectedService.min_qty != null) {
+            const parsed = parseInt(selectedService.min_qty, 10);
+            if (!isNaN(parsed) && parsed > 0) minRequired = parsed;
+        } else {
+            try {
+                const key = "('" + platform + "', '" + engagementType + "')";
+                const cfgMin = minimumQuantities && minimumQuantities[key];
+                if (cfgMin != null && !isNaN(parseInt(cfgMin, 10)) && parseInt(cfgMin, 10) > 0) {
+                    minRequired = parseInt(cfgMin, 10);
+                }
+            } catch (_) {}
+        }
 
-        console.log(`Adding row for: ${engagementType} (Platform: ${platform}, MinQty: ${minRequired})`);
-        addEngagementRow(engagementType, null, minRequired); 
+        console.log(`Adding row for: ${engagementType} (Platform: ${platform}, MinQty UI: ${minRequired}, Service: #${selectedService.service_id})`);
+        addEngagementRow(
+            engagementType,
+            {
+                service_id: selectedService.service_id,
+                service_name: (selectedService.name || ((selectedService.provider_label || selectedService.provider)+ ' #' + selectedService.service_id)),
+                rate_per_1k: (selectedService.rate_per_1k != null) ? parseFloat(selectedService.rate_per_1k) : null,
+                min_qty: (selectedService.min_qty != null) ? parseInt(selectedService.min_qty, 10) : null,
+                max_qty: (selectedService.max_qty != null) ? parseInt(selectedService.max_qty, 10) : null
+            },
+            minRequired,
+            platform
+        );
+        // Update total cost after adding a row
+        try { updateModalProfileCostEstimate(); } catch(_) {}
 
     }
 
@@ -1633,23 +2375,44 @@ document.addEventListener('DOMContentLoaded', function() {
         engagementSelect.disabled = true;
         addEngagementBtn.disabled = true;
 
-        // --- Populate Platform Dropdown --- 
-        console.log("Populating platform dropdown...");
-        const platforms = ["Instagram", "TikTok", "YouTube", "X (Twitter)"]; // Or get from config if needed
-        // Add a placeholder/default option
+        // --- Populate Platform Dropdown from CSV with fallback --- 
+        console.log("Populating platform dropdown from CSV...");
+        platformSelect.innerHTML = '';
         const platformPlaceholder = document.createElement('option');
         platformPlaceholder.value = "";
         platformPlaceholder.textContent = "-- Select Platform --";
         platformPlaceholder.disabled = true;
         platformPlaceholder.selected = true;
         platformSelect.appendChild(platformPlaceholder);
-        // Add platform options
-        platforms.forEach(p => {
-            const option = document.createElement('option');
-            option.value = p;
-            option.textContent = p;
-            platformSelect.appendChild(option);
-        });
+        (async () => {
+            try {
+                let platforms = await loadPlatformsFromServer();
+                if (!platforms || platforms.length === 0) {
+                    console.warn('Platforms API returned empty for modal. Using fallback.');
+                    platforms = ['Instagram','TikTok','YouTube','X (Twitter)','Spotify'];
+                }
+                platforms.forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p;
+                    option.textContent = p;
+                    platformSelect.appendChild(option);
+                });
+            } catch (err) {
+                console.error('Failed to load platforms for modal:', err);
+                ['Instagram','TikTok','YouTube','X (Twitter)','Spotify'].forEach(p => {
+                    const option = document.createElement('option');
+                    option.value = p;
+                    option.textContent = p;
+                    platformSelect.appendChild(option);
+                });
+            }
+        })();
+
+        // Ensure the change handler is attached even if original binding missed (modal may be dynamic)
+        try {
+            platformSelect.removeEventListener('change', handleModalPlatformChange);
+        } catch (e) { /* ignore if not attached */ }
+        platformSelect.addEventListener('change', handleModalPlatformChange);
 
         // --- Setup Listeners for Platform/Engagement Selection (Remove old ones first if necessary) --- 
         // It's generally safer to attach listeners once outside the openModal function,
@@ -1681,13 +2444,12 @@ document.addEventListener('DOMContentLoaded', function() {
             if (profileData.engagements && Array.isArray(profileData.engagements)) {
                  profileData.engagements.forEach(savedEng => {
                     // Assuming addEngagementRow exists and works with the new structure
-                    // We might need to pass the PLATFORM associated with these engagements if it matters
-                    // For now, assume Instagram implicitly or it's stored in savedEng?
+                    // Use the saved platform (fallback to Instagram)
                     if (typeof addEngagementRow === 'function') {
-                        const platform = 'Instagram'; // <<< ASSUMPTION: Hardcoding for now
-                        const minQtyKey = "('" + platform + "', '" + savedEng.type + "')";
-                        const minRequired = minimumQuantities[minQtyKey] || 1; 
-                        addEngagementRow(savedEng.type, savedEng, minRequired); // Pass saved data
+                        const platform = savedEng.platform || 'Instagram';
+                        const svcMin = (savedEng && savedEng.min_qty != null) ? parseInt(savedEng.min_qty, 10) : null;
+                        const minRequired = (svcMin && svcMin > 0) ? svcMin : 1; // Enforce per-service min when available
+                        addEngagementRow(savedEng.type, savedEng, minRequired, platform); // Pass saved data + platform
                     } else {
                          console.error("addEngagementRow function is missing!");
                     }
@@ -1709,12 +2471,108 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("Adding .is-visible class...");
         profileModal.classList.add('is-visible');
         console.log("Added .is-visible class.");
+        // Ensure the total cost display exists (create if missing)
+        let costElInit = document.getElementById('profile-total-cost');
+        if (!costElInit) {
+            try {
+                const saveBtn = document.getElementById('save-profile-btn');
+                const actionsWrap = saveBtn ? saveBtn.parentElement : null; // .text-end border-top...
+                const insertParent = actionsWrap ? actionsWrap.parentElement : null; // form root child
+                costElInit = document.createElement('div');
+                costElInit.id = 'profile-total-cost';
+                costElInit.className = 'small text-info mt-2';
+                if (insertParent && actionsWrap) {
+                    insertParent.insertBefore(costElInit, actionsWrap);
+                } else {
+                    // Fallback: append to form
+                    document.getElementById('profile-editor-form')?.appendChild(costElInit);
+                }
+                console.log('[ProfilesModal] Injected #profile-total-cost into DOM.');
+            } catch (e) { console.warn('Could not inject profile total cost element:', e); }
+        }
+        // Show a default estimate line so the section is visibly active
+        if (costElInit) costElInit.textContent = `Estimated Total Cost: ${formatCurrency(0)}`;
+        // Initialize and bind total cost estimate updates
+        try { updateModalProfileCostEstimate(); } catch(_) {}
+        try {
+            const loopCountInputEl = document.getElementById('loop-count');
+            if (loopCountInputEl) {
+                loopCountInputEl.addEventListener('input', updateModalProfileCostEstimate);
+                loopCountInputEl.addEventListener('change', updateModalProfileCostEstimate);
+            }
+        } catch(_) {}
         
         console.log("[-] openProfileModal END."); 
     }
 
+    // --- Compute and render the total cost estimate for the profile modal ---
+    function updateModalProfileCostEstimate() {
+        const costEl = document.getElementById('profile-total-cost');
+        if (!costEl) return;
+        const rowsContainer = document.getElementById('added-engagement-rows');
+        if (!rowsContainer) { costEl.textContent = ''; return; }
+        const rows = rowsContainer.querySelectorAll('.engagement-row');
+        if (!rows || rows.length === 0) { costEl.textContent = ''; return; }
+
+        let totalRowsCost = 0;
+        let maxRowLoops = 1;
+        rows.forEach(row => {
+            const rateAttr = row.getAttribute('data-service-rate');
+            const rate = (rateAttr != null && rateAttr !== '') ? parseFloat(rateAttr) : null;
+            if (rate == null || isNaN(rate)) return; // cannot compute without a rate
+            const isRandom = row.querySelector('input.engagement-random-cb')?.checked;
+            const fixedQty = parseInt(row.querySelector('input.engagement-fixed-qty')?.value || '0', 10) || 0;
+            const minQty = parseInt(row.querySelector('input.engagement-min-qty')?.value || '0', 10) || 0;
+            const maxQty = parseInt(row.querySelector('input.engagement-max-qty')?.value || '0', 10) || 0;
+            const rowLoops = parseInt(row.querySelector('input.engagement-loops')?.value || '1', 10) || 1;
+            if (rowLoops > maxRowLoops) maxRowLoops = rowLoops;
+            const svcMinAttr = row.getAttribute('data-service-min');
+            const svcMaxAttr = row.getAttribute('data-service-max');
+            const svcMin = svcMinAttr ? parseInt(svcMinAttr, 10) : null;
+            const svcMax = svcMaxAttr ? parseInt(svcMaxAttr, 10) : null;
+
+            // MAX-based quantity per user request
+            let qty = 0;
+            if (isRandom) {
+                // Use user-provided Max Qty if valid; else fall back to service max; else 0
+                if (maxQty > 0) {
+                    qty = maxQty;
+                } else if (svcMax && svcMax > 0) {
+                    qty = svcMax;
+                } else if (svcMin && svcMin > 0) { // last resort
+                    qty = svcMin;
+                }
+            } else {
+                // Fixed: use fixed quantity if set; else fallback to service max, then min
+                if (fixedQty > 0) {
+                    qty = fixedQty;
+                } else if (svcMax && svcMax > 0) {
+                    qty = svcMax;
+                } else if (svcMin && svcMin > 0) {
+                    qty = svcMin;
+                }
+            }
+            if (qty <= 0) return;
+
+            const itemCost = (rate * qty) / 1000.0; // cost per execution of this engagement
+            totalRowsCost += (itemCost * rowLoops);
+        });
+
+        // Auto-set master loop-count to the highest per-row loops for display consistency only
+        const loopCountEl = document.getElementById('loop-count');
+        if (loopCountEl) {
+            const current = parseInt(loopCountEl.value || '1', 10) || 1;
+            if (current !== maxRowLoops) loopCountEl.value = String(maxRowLoops);
+        }
+
+        // Do NOT multiply by master loops; total already includes each row's loops
+        let total = totalRowsCost;
+        if (!isFinite(total) || isNaN(total)) total = 0;
+        costEl.textContent = `Estimated Total Cost: ${formatCurrency(total)}`;
+    }
+
     // --- NEW Listener function for Platform change INSIDE modal ---
-    function handleModalPlatformChange() {
+    async function handleModalPlatformChange() {
         const platformSelect = document.getElementById('modal-platform-select');
         const engagementSelect = document.getElementById('modal-engagement-select');
         const addEngagementBtn = document.getElementById('add-engagement-row-btn');
@@ -1727,8 +2585,21 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedPlatform = platformSelect.value;
         console.log(`Modal Platform selected: ${selectedPlatform}`);
         
-        // Clear current engagement options
+        // Clear current engagement options and any selected service state
         engagementSelect.innerHTML = ''; 
+        try { delete engagementSelect.dataset.selectedService; } catch(_) {}
+        // Remove existing custom dropdown wrapper to avoid stale handlers
+        try {
+            const existingBtn = document.getElementById('modal-eng-btn');
+            const existingMenu = document.getElementById('modal-eng-menu');
+            if (existingBtn) {
+                const wrap = existingBtn.parentElement;
+                if (wrap && wrap.parentElement) wrap.parentElement.removeChild(wrap);
+            } else if (existingMenu) {
+                const wrap = existingMenu.parentElement;
+                if (wrap && wrap.parentElement) wrap.parentElement.removeChild(wrap);
+            }
+        } catch(_) {}
 
         if (!selectedPlatform) {
             // No platform selected - Reset engagement dropdown
@@ -1751,47 +2622,43 @@ document.addEventListener('DOMContentLoaded', function() {
         placeholder.textContent = "-- Select Engagement --";
         engagementSelect.appendChild(placeholder);
 
-        // Find available engagements for this platform from minimumQuantities cache
-        const availableEngagements = new Set();
-        if (minimumQuantities && typeof minimumQuantities === 'object') {
-             Object.keys(minimumQuantities).forEach(key => {
-                 let platform = null;
-                 let engagement = null;
-                 // Reuse parsing logic
-                 if (key.startsWith("('") && key.endsWith("')")) {
-                     const content = key.substring(2, key.length - 2); 
-                     const parts = content.split("', '"); 
-                     if (parts.length === 2) {
-                         platform = parts[0]; 
-                         engagement = parts[1];
-                     }
-                 }
-                 if (platform === selectedPlatform && engagement) {
-                     availableEngagements.add(engagement);
-                 }
-             });
-        } else {
-            console.warn("Minimum quantities cache not ready for modal engagement population.");
-            // Disable Add button if data is missing?
-            addEngagementBtn.disabled = true;
-        }
-
-        // Populate dropdown
-        if (availableEngagements.size > 0) {
-            const sortedEngagements = Array.from(availableEngagements).sort();
-            sortedEngagements.forEach(engType => {
-                const option = document.createElement('option');
-                option.value = engType;
-                option.textContent = engType;
-                engagementSelect.appendChild(option);
-            });
-            console.log(`Populated modal engagement dropdown for ${selectedPlatform} with:`, sortedEngagements);
-        } else {
-            console.warn(`No engagements found for platform ${selectedPlatform} in cache.`);
+        try {
+            let engagements = await loadEngagementsFromServer(selectedPlatform);
+            if (!engagements || engagements.length === 0) {
+                console.warn(`Modal: No engagements from API for ${selectedPlatform}. Using fallback.`);
+                engagements = getFallbackEngagements(selectedPlatform);
+            }
+            if (engagements && engagements.length) {
+                engagements.forEach(engType => {
+                    const option = document.createElement('option');
+                    option.value = engType;
+                    option.textContent = engType;
+                    engagementSelect.appendChild(option);
+                });
+                // Setup a fresh custom dropdown for modal engagement
+                const customDrop = ensureCustomEngagementDropdown(engagementSelect, platformSelect, 'modal');
+                if (customDrop && customDrop.setItems) customDrop.setItems(engagements);
+                // Reset selection state for new platform
+                engagementSelect.value = '';
+                if (customDrop.btn) customDrop.btn.textContent = '-- Select Engagement --';
+                const sub = document.getElementById('modal-eng-selected-sub');
+                if (sub) sub.textContent = '';
+                // Close any open flyout
+                try { if (typeof closeFlyout === 'function') closeFlyout(); } catch(_) {}
+                console.log(`Populated modal engagement dropdown for ${selectedPlatform} with:`, engagements);
+            } else {
+                const noOptions = document.createElement('option');
+                noOptions.textContent = "No options found";
+                engagementSelect.appendChild(noOptions);
+                engagementSelect.disabled = true; 
+                addEngagementBtn.disabled = true;
+            }
+        } catch (e) {
+            console.error('Failed to load engagements for modal:', e);
             const noOptions = document.createElement('option');
-            noOptions.textContent = "No options found";
+            noOptions.textContent = "Error loading options";
             engagementSelect.appendChild(noOptions);
-            engagementSelect.disabled = true; // Disable if no options
+            engagementSelect.disabled = true; 
             addEngagementBtn.disabled = true;
         }
     }
@@ -1833,12 +2700,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    function addEngagementRow(engagementTypeName, engagementData = null, minRequired = 1) {
+    function addEngagementRow(engagementTypeName, engagementData = null, minRequired = 1, platform = 'Instagram') {
         console.log(`Adding row for type: ${engagementTypeName}, MinRequired: ${minRequired}, Data:`, engagementData);
         
         const row = document.createElement('div');
         row.className = 'row g-2 mb-1 engagement-row'; 
         row.setAttribute('data-engagement-type', engagementTypeName);
+        row.setAttribute('data-platform', platform);
+        if (engagementData && engagementData.service_id) {
+            row.setAttribute('data-service-id', String(engagementData.service_id));
+            if (engagementData.service_name) row.setAttribute('data-service-name', engagementData.service_name);
+            if (engagementData.rate_per_1k != null) row.setAttribute('data-service-rate', String(engagementData.rate_per_1k));
+            if (engagementData.min_qty != null) row.setAttribute('data-service-min', String(engagementData.min_qty));
+            if (engagementData.max_qty != null) row.setAttribute('data-service-max', String(engagementData.max_qty));
+        }
         // Remove stored min/max data attributes if they exist from previous attempt
         delete row.dataset.minQty;
         delete row.dataset.maxQty;
@@ -1847,7 +2722,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const typeCol = document.createElement('div');
         typeCol.className = 'col-2 d-flex align-items-center text-light'; // Changed to col-2
         typeCol.style.whiteSpace = 'nowrap'; 
-        typeCol.textContent = engagementTypeName;
+        // Compact label: show 'engagement-type - service_id' to avoid overflow behind controls
+        if (engagementData && (engagementData.service_id || row.getAttribute('data-service-id'))) {
+            const sid = String(engagementData.service_id || row.getAttribute('data-service-id'));
+            typeCol.textContent = `${engagementTypeName} - ${sid}`;
+            // Keep full service name as tooltip if available
+            if (engagementData.service_name) typeCol.title = engagementData.service_name;
+        } else {
+            typeCol.textContent = engagementTypeName;
+        }
         row.appendChild(typeCol);
 
         // 2. Fixed Quantity Input Column
@@ -1925,6 +2808,19 @@ document.addEventListener('DOMContentLoaded', function() {
         removeButton.title = `Remove ${engagementTypeName} settings`;
         removeCol.appendChild(removeButton);
         row.appendChild(removeCol);
+
+        // Attach listeners to recalc cost when inputs change
+        const recalc = () => { try { updateModalProfileCostEstimate(); } catch(_) {} };
+        fixedQtyInput.addEventListener('input', recalc);
+        minQtyInput.addEventListener('input', recalc);
+        maxQtyInput.addEventListener('input', recalc);
+        loopInput.addEventListener('input', recalc);
+        randomCheckbox.addEventListener('change', () => {
+            minQtyInput.disabled = !randomCheckbox.checked;
+            maxQtyInput.disabled = !randomCheckbox.checked;
+            fixedQtyInput.disabled = randomCheckbox.checked;
+            recalc();
+        });
 
         // Reverted Event listener for the random checkbox
         randomCheckbox.addEventListener('change', (e) => { 
@@ -2013,7 +2909,23 @@ document.addEventListener('DOMContentLoaded', function() {
         const profileName = profileNameInput.value.trim();
         const originalName = originalProfileNameInput.value;
         if (!profileName) {
-            showTemporaryStatus(profileNameInput.parentElement, "Profile Name cannot be empty.", "warning");
+            // Do NOT replace the input; show message in a dedicated status element under the field
+            let nameStatus = document.getElementById('profile-name-status');
+            if (!nameStatus) {
+                nameStatus = document.createElement('div');
+                nameStatus.id = 'profile-name-status';
+                nameStatus.className = 'small mt-1';
+                // Insert after the input
+                if (profileNameInput && profileNameInput.parentElement) {
+                    profileNameInput.parentElement.appendChild(nameStatus);
+                }
+            }
+            showTemporaryStatus(nameStatus, "Profile Name cannot be empty.", "warning");
+            // Bind one-time input listener to clear message when user types
+            try {
+                const clearFn = () => { clearTemporaryStatus(nameStatus); profileNameInput.removeEventListener('input', clearFn); };
+                profileNameInput.addEventListener('input', clearFn);
+            } catch (_) {}
             return;
         }
 
@@ -2029,6 +2941,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
         engagementRows.forEach(row => {
             const type = row.getAttribute('data-engagement-type'); 
+            const platform = row.getAttribute('data-platform') || 'Instagram';
+            const serviceIdAttr = row.getAttribute('data-service-id');
+            const serviceRateAttr = row.getAttribute('data-service-rate');
             const fixedQtyInput = row.querySelector('input.engagement-fixed-qty');
             const isRandom = row.querySelector('input.engagement-random-cb').checked;
             const minQtyInput = row.querySelector('input.engagement-min-qty');
@@ -2040,6 +2955,9 @@ document.addEventListener('DOMContentLoaded', function() {
             let validationMessage = ""; // Store specific error message
             const engagement = {
                 type: type,
+                platform: platform,
+                service_id: serviceIdAttr ? parseInt(serviceIdAttr, 10) : undefined,
+                rate_per_1k: serviceRateAttr != null ? parseFloat(serviceRateAttr) : undefined,
                 use_random_quantity: isRandom,
                 fixed_quantity: null,
                 min_quantity: null,
@@ -2047,11 +2965,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 loops: parseInt(loopInput.value) || 1
             };
 
-            // --- Platform is assumed 'Instagram' for now for min qty check --- 
-            const platform = 'Instagram'; // Hardcode for now
-            const minQtyKey = "('" + platform + "', '" + type + "')";
-            const minRequired = minimumQuantities[minQtyKey] || 1; // Default to 1 if not found
-            // --- End Platform Assumption ---
+            // --- UI min relaxed; server validates against CSV per selected service ---
+            const minRequired = 1;
 
             fixedQtyInput.style.borderColor = ''; // Reset borders
             minQtyInput.style.borderColor = '';
@@ -2188,6 +3103,80 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isChecked) loopDelayInput.value = ''; // Clear fixed delay if random checked
     }
 
+    // --- DEBUG PAGE HANDLERS ---
+    function dbgSetResult(ok, resultSpan, logPre, logText) {
+        if (resultSpan) {
+            resultSpan.textContent = ok ? '✓' : '✗';
+            resultSpan.className = ok ? 'text-success fw-bold' : 'text-danger fw-bold';
+        }
+        if (logPre) {
+            logPre.textContent = typeof logText === 'string' ? logText : JSON.stringify(logText, null, 2);
+        }
+    }
+
+    async function dbgPost(endpoint, body) {
+        return await apiCall(endpoint, 'POST', body || {});
+    }
+
+    function bindDebugButton(btnId, resultSpanId, logPreId, endpoint, getPayload = () => ({})) {
+        const btn = document.getElementById(btnId);
+        const resultSpan = document.getElementById(resultSpanId);
+        const logPre = document.getElementById(logPreId);
+        if (!btn) return;
+        btn.addEventListener('click', async () => {
+            try {
+                if (resultSpan) {
+                    resultSpan.textContent = '...';
+                    resultSpan.className = 'text-info fw-bold';
+                }
+                const payload = getPayload();
+                const data = await dbgPost(endpoint, payload);
+                const ok = !!(data && data.success);
+                const logText = data && data.log ? data.log : data;
+                dbgSetResult(ok, resultSpan, logPre, logText);
+            } catch (e) {
+                dbgSetResult(false, resultSpan, logPre, `Error: ${e.message}`);
+            }
+        });
+    }
+
+    async function initializeDebugPage() {
+        console.log('Initializing Debug Page...');
+        // Open Chrome
+        bindDebugButton('dbg-open-browser-btn','dbg-open-browser-result','dbg-open-browser-log','/api/debug/open_browser');
+        // Navigate to login
+        bindDebugButton('dbg-nav-login-btn','dbg-nav-login-result','dbg-nav-login-log','/api/debug/nav_login', () => {
+            const urlInput = document.getElementById('dbg-login-url');
+            return { url: urlInput ? urlInput.value.trim() : '' };
+        });
+        // Select Google -> Run full automation login to mirror real flow
+        bindDebugButton('dbg-select-google-btn','dbg-select-google-result','dbg-select-google-log','/api/debug/login');
+        // Enter Email
+        bindDebugButton('dbg-enter-email-btn','dbg-enter-email-result','dbg-enter-email-log','/api/debug/enter_email', () => {
+            const emailInput = document.getElementById('dbg-email');
+            return { email: emailInput ? emailInput.value.trim() : '' };
+        });
+        // Continue after Email
+        bindDebugButton('dbg-continue-email-btn','dbg-continue-email-result','dbg-continue-email-log','/api/debug/continue_email');
+        // Enter Password
+        bindDebugButton('dbg-enter-password-btn','dbg-enter-password-result','dbg-enter-password-log','/api/debug/enter_password', () => {
+            const pwdInput = document.getElementById('dbg-password');
+            return { password: pwdInput ? pwdInput.value : '' };
+        });
+        // Continue after Password
+        bindDebugButton('dbg-continue-password-btn','dbg-continue-password-result','dbg-continue-password-log','/api/debug/continue_password');
+        // Verify Dashboard
+        bindDebugButton('dbg-verify-dashboard-btn','dbg-verify-dashboard-result','dbg-verify-dashboard-log','/api/debug/verify_dashboard');
+        // Submit Promo
+        bindDebugButton('dbg-submit-promo-btn','dbg-submit-promo-result','dbg-submit-promo-log','/api/debug/submit_promo', () => {
+            const product = document.getElementById('dbg-product')?.value?.trim() || '';
+            const model_size = document.getElementById('dbg-model-size')?.value?.trim() || '';
+            const link = document.getElementById('dbg-link')?.value?.trim() || '';
+            return { product, model_size, link };
+        });
+        console.log('Debug Page Ready');
+    }
+
     // --- MAIN EXECUTION --- 
     async function initApp() {
         console.log("Starting App Initialization...");
@@ -2215,7 +3204,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const isOnProfilePage = !!addProfileBtnElem;
         const isOnMonitorPage = !!saveMonitoringSettingsBtnElem;
         const isOnHistoryPage = !!historyListElem;
-        console.log(`Page Check by Element: Promo=${isOnPromoPage}, Profiles=${isOnProfilePage}, Monitor=${isOnMonitorPage}, History=${isOnHistoryPage}`);
+        const isOnDebugPage = !!document.getElementById('debug-page-container') || (document.body && document.body.id === 'page-debug');
+        console.log(`Page Check by Element: Promo=${isOnPromoPage}, Profiles=${isOnProfilePage}, Monitor=${isOnMonitorPage}, History=${isOnHistoryPage}, Debug=${isOnDebugPage}`);
 
         // 3. Run Page-Specific UI Setup & Attach Listeners
         // Prioritize Promo page check
@@ -2251,11 +3241,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 // showStatus("History Page Ready", "success", "status-text", "status-text", 3000);
             }
             initializeHistoryPage();
+        } else if (isOnDebugPage) {
+            console.log("Initializing Debug Page (detected by element)...");
+            await initializeDebugPage();
         } else {
             console.log(`Running on unknown page or index page without specific elements.`);
             // Attempt to initialize single promo section if it exists anyway (might be index)
             await initializeSinglePromoPage(); 
         }
+        
+        // Balance display removed from UI; no initialization needed here.
         
         console.log(`App Initialization finished.`);
     }
@@ -2357,19 +3352,4 @@ document.addEventListener('DOMContentLoaded', function() {
              saveBtn.textContent = 'Save Username'; // Restore original button text
         }
     }
-
-    // --- PAGE SPECIFIC INITIALIZERS (Define BEFORE use in initApp) ---
-
-    // --- History Page Specific Initialization Function Definition ---
-    // Moved here from IIFE to avoid ReferenceError on showStatus
-    function initializeHistoryPage() {
-        console.log("Initializing History Page...");
-        // TODO: Add any specific listeners or UI setup for the history table if needed.
-        // For now, it's mostly static HTML generated by Flask.
-        // showStatus("History Page Ready", "success", "status-text", "status-text", 3000);
-    }
-    // NOTE: Removed the duplicate initializeHistoryPage function that was below the DOMContentLoaded listener.
-
-    // --- Attach the main initialization to DOMContentLoaded ---
-    // REPLACED THE ORIGINAL DUPLICATE LISTENER with the one at line 2228
-}); // <<< This now correctly closes the main DOMContentLoaded listener from the start of the file.
+});

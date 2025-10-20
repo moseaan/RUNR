@@ -21,7 +21,7 @@ ENGAGEMENT_OPTIONS = ["Likes", "Views", "Shares", "Saves", "Reach/Impressions"]
 # !!! This needs expansion for other services based on inspection of Dogehype !!!
 CATEGORY_MAPPING = {
     # --- Instagram --- 
-    ("Instagram", "Likes"): "Instagram - Likes - [RECOMMENDED]",
+    ("Instagram", "Likes"): "Instagram - [USA]",
     ("Instagram", "Views"): "Instagram - Views",
     ("Instagram", "Reach/Impressions"): "Instagram - Reach | Engagement | Profile Visits | Shares",
     ("Instagram", "Saves"): "Instagram Saves",

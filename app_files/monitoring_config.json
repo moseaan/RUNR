@@ -1,5 +1,5 @@
 {
-    "polling_interval_seconds": 90,
+    "polling_interval_seconds": 30,
     "targets": [
         {
             "id": "4d4dcbb8-7fb6-48ae-ad14-656acf969f18",
@@ -10,12 +10,20 @@
             "last_checked_timestamp": "2025-05-19T19:03:06.010403+00:00"
         },
         {
-            "id": "43768e4f-8fc5-4517-9175-a5bb93adbd2c",
-            "target_username": "moseaan",
-            "promotion_profile_name": "IG Reel",
-            "last_pushed_post_url": "https://www.instagram.com/p/DIuIdMip0-k/",
+            "id": "61ef5fe2-08fa-47f5-8938-64408310d3a2",
+            "target_username": "moseaanfanpage",
+            "promotion_profile_name": "Main",
+            "last_pushed_post_url": "https://www.instagram.com/p/DOMa4zrCcxN/",
             "is_running": false,
-            "last_checked_timestamp": "2025-05-20T18:53:06.318008+00:00"
+            "last_checked_timestamp": "2025-09-13T20:23:33.061548+00:00"
+        },
+        {
+            "id": "e4246390-8da6-4699-ad2e-774964910796",
+            "target_username": "moseaan",
+            "promotion_profile_name": "Main",
+            "last_pushed_post_url": "https://www.instagram.com/p/DO9T9dNEaiD/",
+            "is_running": false,
+            "last_checked_timestamp": "2025-09-23T21:01:12.268986+00:00"
         }
     ]
 }

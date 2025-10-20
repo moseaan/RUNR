@@ -18,20 +18,7 @@
 
     <h2 class="mb-4">Manage Profiles</h2>
 
-    <!-- Username Editing Card (Optional: Remove if not needed) -->
-    <div class="card mb-3">
-        <div class="card-header"><strong>Username</strong></div>
-        <div class="card-body">
-             <div class="row g-3 align-items-center">
-                 <div class="col">
-                     <input type="text" id="username-display" class="form-control" value="{{ username | default('Loading...') }}">
-                 </div>
-                 <div class="col-auto">
-                     <button id="save-username-btn" class="btn btn-secondary">Save Username</button>
-                 </div>
-             </div>
-        </div>
-    </div>
+    <!-- Username section removed -->
 
     <!-- Profile Management Card -->
     <div class="card mb-3">
@@ -142,6 +129,11 @@
                      </div>
                  </div>
              </div>
+
+            <!-- Profile Total Cost Estimate -->
+            <div class="mt-2">
+                <div id="profile-total-cost" class="small text-info"></div>
+            </div>
 
             <!-- Action Buttons -->
             <div class="text-end border-top pt-3 mt-4">

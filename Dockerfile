@@ -25,6 +25,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libcairo2 \
     libasound2 \
     fonts-liberation \
+    fonts-unifont \
+    fonts-ubuntu \
     tk-dev \
     # Clean up apt cache
     && rm -rf /var/lib/apt/lists/*
@@ -36,8 +38,7 @@ COPY app_files/requirements.txt /app/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Install Playwright browsers (Chromium in this case)
-# --with-deps might be redundant here as system deps are handled by apt-get, but it's harmless.
-RUN playwright install --with-deps chromium
+RUN playwright install chromium
 
 # Copy configuration and credential files from the project root to /app in the container
 COPY .env /app/
@@ -53,4 +54,4 @@ COPY app_files/ /app/
 # Render sets the PORT environment variable, which Waitress should pick up.
 # Flask's default is 5000, but your app.py uses os.environ.get("PORT", 10000)
 # and then Waitress serves on that port. Render will route external port 80/443 to this internal PORT.
-CMD ["python", "app.py"] 
+CMD ["python", "app.py"]

@@ -791,6 +791,59 @@ button:disabled {
     color: #ffffff;
 }
 
+/* --- Services Flyout --- */
+.services-flyout {
+    position: absolute;
+    z-index: 1050;
+    min-width: 340px;
+    max-width: 520px;
+    max-height: 320px;
+    overflow: auto;
+    background: var(--card-bg-color);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 6px 16px rgba(0,0,0,.35);
+    padding: 10px;
+}
+.services-flyout h6 {
+    color: #fff;
+    margin: 0 0 8px 0;
+}
+.services-flyout .service-item {
+    padding: 6px 8px;
+    border-bottom: 1px solid rgba(255,255,255,.08);
+    cursor: pointer;
+}
+.services-flyout .service-item:last-child {
+    border-bottom: none;
+}
+.services-flyout .service-title {
+    font-weight: 600;
+    color: #fff;
+}
+.services-flyout .service-meta {
+    font-size: .85em;
+    color: #ccc;
+}
+
+/* Custom engagement dropdown menu tweaks */
+.dropdown-menu.show {
+    display: block;
+    background: var(--card-bg-color);
+    border: 1px solid var(--border-color);
+}
+.dropdown-item {
+    color: var(--text-color);
+}
+.dropdown-item:hover,
+.dropdown-item.active {
+    background-color: rgba(0,123,255,0.2);
+}
+
+.services-flyout .service-item:hover {
+    background-color: rgba(0,123,255,0.15);
+}
+
 
 /* Style placeholders specifically */
 .card-body > .row .form-control::placeholder {

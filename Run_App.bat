@@ -18,8 +18,8 @@ IF NOT EXIST "%VENV_PYTHON%" (
     EXIT /B 1
 )
 
-REM Check if app file exists inside app_files (use the module name prefix)
-SET "APP_FILE_NAME=%APP_MODULE::=:%.py"
+REM Check if app file exists inside app_files (derive file from module name before colon)
+FOR /F "tokens=1 delims=:" %%A IN ("%APP_MODULE%") DO SET "APP_FILE_NAME=%%A.py"
 IF NOT EXIST "%APP_FILES_DIR%\%APP_FILE_NAME%" (
     ECHO WARNING: Application file %APP_FILES_DIR%\%APP_FILE_NAME% not found. Waitress might fail.
 )
@@ -34,7 +34,7 @@ ECHO  Starting Waitress server for %APP_MODULE% (found in app_files)
 ECHO  Using Python: %VENV_PYTHON%
 ECHO  Listening on: http://%HOST%:%PORT%
 ECHO  Access this from other devices on your network using:
-ECHO  http://<Your-Computer-IP-Address>:%PORT%
+ECHO  http://YOUR-COMPUTER-IP-ADDRESS:%PORT%
 ECHO  (Find your IP using 'ipconfig' in Command Prompt)
 ECHO ============================================================
 ECHO.
@@ -45,4 +45,4 @@ REM Run Waitress server as a module using the venv's Python
 "%VENV_PYTHON%" -m waitress --host %HOST% --port %PORT% %APP_MODULE%
 
 ECHO Waitress server stopped.
-PAUSE 
+PAUSE

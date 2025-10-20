@@ -16,13 +16,14 @@
                             <th>Status</th>
                             <th>Message</th>
                             <th>Duration (s)</th>
+                            <th>Cost</th>
                         </tr>
                     </thead>
                     <tbody>
                         {% for entry in history %}
                             {# Ensure entry is a dictionary before accessing #}
                             {% if entry is mapping %}
-                                <tr>
+                                <tr data-job-id="{{ entry.get('job_id') }}">
                                     {# TEMP: Display raw data for debugging #}
                                     {# <td colspan="6">{{ entry | string }}</td> #}
                                     {# OLD TIMESTAMP LOGIC #}
@@ -58,7 +59,7 @@
                                     {# #}
                                     {# OLD STATUS LOGIC #}
                                     {% set status = entry.get('status', 'unknown') %}
-                                    <td class="status-{{ status | lower }}">
+                                    <td class="status-cell status-{{ status | lower }}">
                                         {{ status | capitalize }}
                                     </td>
                                     {# #}
@@ -72,6 +73,18 @@
                                             {{ "%.2f"|format(duration) }}
                                         {% else %}
                                             N/A
+                                        {% endif %}
+                                    </td>
+                                    <td class="cost-cell">
+                                        {% set tc = entry.get('total_cost') %}
+                                        {% if tc is not none %}
+                                            ${{ "%.6f"|format(tc) }}
+                                        {% elif entry.get('total_cost') is none and entry.get('unit_rate_per_1k') is not none and entry.get('quantity') is not none %}
+                                            {# Fallback compute for single entries if present #}
+                                            {% set cr = (entry.get('unit_rate_per_1k') * (entry.get('quantity') / 1000.0)) %}
+                                            ${{ "%.6f"|format(cr) }}
+                                        {% else %}
+                                            -
                                         {% endif %}
                                     </td>
                                     {# #}

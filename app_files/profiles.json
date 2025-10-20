@@ -1,115 +1,79 @@
 {
-    "Main": {
+    "Instagram Post Main": {
         "engagements": [
             {
-                "type": "Likes",
-                "use_random_quantity": true,
-                "fixed_quantity": null,
-                "min_quantity": 10,
-                "max_quantity": 24,
-                "loops": 6
-            },
-            {
                 "type": "Views",
+                "platform": "Instagram",
+                "service_id": 767,
+                "rate_per_1k": 0.0812,
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 100,
-                "max_quantity": 500,
-                "loops": 6
+                "max_quantity": 120,
+                "loops": 9
             },
             {
-                "type": "Saves",
-                "use_random_quantity": false,
-                "fixed_quantity": 10,
-                "min_quantity": null,
-                "max_quantity": null,
-                "loops": 1
+                "type": "Likes",
+                "platform": "Instagram",
+                "service_id": 5000,
+                "rate_per_1k": 2.1,
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 20,
+                "max_quantity": 25,
+                "loops": 15
             },
             {
                 "type": "Shares",
-                "use_random_quantity": false,
-                "fixed_quantity": 10,
-                "min_quantity": null,
-                "max_quantity": null,
-                "loops": 1
-            },
-            {
-                "type": "Reach/Impressions",
-                "use_random_quantity": true,
-                "fixed_quantity": null,
-                "min_quantity": 100,
-                "max_quantity": 1000,
-                "loops": 6
-            }
-        ],
-        "loop_settings": {
-            "loops": 6,
-            "delay": 0,
-            "random_delay": true,
-            "min_delay": 300,
-            "max_delay": 600
-        }
-    },
-    "IG Pic": {
-        "engagements": [
-            {
-                "type": "Likes",
+                "platform": "Instagram",
+                "service_id": 9590,
+                "rate_per_1k": 0.0125,
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 10,
-                "max_quantity": 20,
-                "loops": 2
-            }
-        ],
-        "loop_settings": {
-            "loops": 2,
-            "delay": 30,
-            "random_delay": false,
-            "min_delay": 0,
-            "max_delay": 0
-        }
-    },
-    "IG Reel": {
-        "engagements": [
-            {
-                "type": "Views",
-                "use_random_quantity": true,
-                "fixed_quantity": null,
-                "min_quantity": 100,
-                "max_quantity": 500,
-                "loops": 3
-            },
-            {
-                "type": "Likes",
-                "use_random_quantity": true,
-                "fixed_quantity": null,
-                "min_quantity": 10,
-                "max_quantity": 20,
+                "max_quantity": 10,
                 "loops": 3
             },
             {
                 "type": "Saves",
-                "use_random_quantity": false,
-                "fixed_quantity": 10,
-                "min_quantity": null,
-                "max_quantity": null,
+                "platform": "Instagram",
+                "service_id": 778,
+                "rate_per_1k": 0.075,
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 10,
+                "max_quantity": 12,
+                "loops": 3
+            },
+            {
+                "type": "Reposts",
+                "platform": "Instagram",
+                "service_id": 10710,
+                "rate_per_1k": 0.56,
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 100,
+                "max_quantity": 120,
                 "loops": 1
             },
             {
-                "type": "Reach/Impressions",
+                "type": "Profile Visits/Impressions",
+                "platform": "Instagram",
+                "service_id": 6028,
+                "rate_per_1k": 0.07,
                 "use_random_quantity": true,
                 "fixed_quantity": null,
-                "min_quantity": 200,
-                "max_quantity": 1000,
-                "loops": 3
+                "min_quantity": 2000,
+                "max_quantity": 2400,
+                "loops": 1
             }
         ],
         "loop_settings": {
-            "loops": 3,
+            "loops": 15,
             "delay": 0,
             "random_delay": true,
-            "min_delay": 300,
-            "max_delay": 600
+            "min_delay": 240,
+            "max_delay": 360
         }
     }
 }

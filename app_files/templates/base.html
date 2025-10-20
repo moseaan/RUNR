@@ -22,7 +22,9 @@
             <a href="{{ url_for('index') }}">Promo</a>
             <a href="{{ url_for('profiles_page') }}">Profiles</a>
             <a href="{{ url_for('history_page') }}">History</a>
+            <a href="{{ url_for('balances_page') }}">Balances</a>
             <a href="{{ url_for('monitoring_page') }}">Monitor</a>
+            <a href="{{ url_for('debug_page') }}">Debug</a>
         </div>
     </nav>
 
@@ -37,7 +39,7 @@
     <div id="toast-container"></div> 
 
     <!-- Common JS -->
-    <script src="{{ url_for('static', filename='script.js') }}?v=1.3" defer></script>
+    <script src="{{ url_for('static', filename='script.js') }}?v=1.7" defer></script>
     {% block scripts %}{% endblock %}
 </body>
 </html> 
