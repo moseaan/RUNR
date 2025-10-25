@@ -21,7 +21,7 @@ def run_single_api_order(platform: str, engagement: str, link: str, quantity: in
 
     try:
         status_update_callback(job_id, 'running', f"Selecting service for {platform} / {engagement}...")
-        svc = sc.select_service(platform, engagement)
+        svc = sc.get_effective_service(platform, engagement)
         if not svc:
             message = f"No service found for {platform} / {engagement} in CSV."
             status_update_callback(job_id, 'failed', message)
@@ -255,8 +255,17 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
 
                 status_update_callback(job_id, 'running', f"Ordering {qty} {eng_type} on {platform}...")
 
-                # Select service from CSV
-                svc = sc.select_service(platform, eng_type)
+                # Select service using explicit service_id if provided; else use effective service (respects overrides)
+                svc = None
+                sid_val = eng.get('service_id')
+                if sid_val is not None:
+                    try:
+                        sid_int = int(sid_val)
+                        svc = sc.find_service(platform, eng_type, sid_int)
+                    except Exception:
+                        svc = None
+                if not svc:
+                    svc = sc.get_effective_service(platform, eng_type)
                 if not svc:
                     messages.append(f"No CSV service for {platform}/{eng_type}")
                     success = False
@@ -285,22 +294,54 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
                         unit_rate_f = None
                     item_cost = round((unit_rate_f * int(qty) / 1000.0), 6) if unit_rate_f is not None else None
 
+                    order_start = datetime.datetime.now()
                     resp = pa.add_order(provider, service_id, link, int(qty))
+                    order_end = datetime.datetime.now()
                     if isinstance(resp, dict) and 'order' in resp:
                         total_orders += 1
-                        messages.append(f"OK {eng_type} -> {resp['order']}@{provider}")
+                        order_id_str = str(resp['order'])
+                        messages.append(f"OK {eng_type} -> {order_id_str}@{provider}")
                         try:
-                            placed_orders.append({'provider': provider, 'order_id': resp['order'], 'engagement': eng_type, 'quantity': int(qty), 'unit_rate_per_1k': unit_rate_f, 'cost': item_cost})
+                            placed_orders.append({'provider': provider, 'order_id': order_id_str, 'engagement': eng_type, 'quantity': int(qty), 'unit_rate_per_1k': unit_rate_f, 'cost': item_cost})
                         except Exception:
                             pass
+                        try:
+                            order_history_entry = {
+                                'job_id': f"{job_id}::order::{order_id_str}",
+                                'parent_job_id': job_id,
+                                'type': 'single',
+                                'profile_name': profile_name,
+                                'platform': platform,
+                                'engagement': eng_type,
+                                'link': link,
+                                'quantity': int(qty),
+                                'start_time': order_start.isoformat(),
+                                'end_time': order_end.isoformat(),
+                                'timestamp': order_end.isoformat(),
+                                'duration_seconds': round((order_end - order_start).total_seconds(), 2),
+                                'status': 'Success',
+                                'message': f"Auto promo order placed via {provider} (service {service_id}).",
+                                'provider': provider,
+                                'order_id': order_id_str,
+                                'unit_rate_per_1k': unit_rate_f,
+                                'total_cost': item_cost
+                            }
+                            save_history_callback(order_history_entry)
+                        except Exception:
+                            traceback.print_exc()
                     else:
                         messages.append(f"Failed {eng_type} -> {resp}")
                         success = False
+                        break
                 except Exception as e:
                     messages.append(f"Error {eng_type}: {e}")
                     success = False
+                    break
 
             if stopped():
+                break
+
+            if not success:
                 break
 
             # Delay between loops
@@ -352,7 +393,7 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
             'duration_seconds': round(duration, 2),
             'status': 'Success' if success else 'Failed',
             'message': final_msg,
-            'orders': placed_orders,
+            'order_count': total_orders,
             'total_cost': total_cost_sum,
         }
         try:

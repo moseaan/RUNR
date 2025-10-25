@@ -1,0 +1,323 @@
+{% extends 'base.html' %}
+
+{% block title %}RUNR - Services Configuration{% endblock %}
+
+{% block body_attributes %}id="page-services"{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Services Configuration</h2>
+    
+    <!-- Status Area -->
+    <div id="services-status-area" class="status-area mb-3" style="min-height: 1.5em;">
+        <span id="services-status-message" class="text-body"></span>
+    </div>
+
+    <!-- Instructions -->
+    <div class="alert alert-info">
+        <strong>Configure Service Preferences:</strong> For each platform and engagement type, you can specify which provider and service ID to use. 
+        When you run a single or auto promo, the system will use your configured service instead of automatically selecting the cheapest one.
+    </div>
+
+    <!-- Services Grid -->
+    <div id="services-grid">
+        <p class="text-center text-white">Loading services...</p>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    console.log('Services page script loaded');
+
+    function formatProviderLabel(p) {
+        const s = (p || '').toString();
+        const lc = s.toLowerCase().replace(/\s+/g, '');
+        if (lc === 'smmkings') return 'SMM Kings';
+        if (lc === 'justanotherpanel') return 'JustAnotherPanel';
+        if (lc === 'peakerr') return 'Peakerr';
+        if (lc === 'mysocialsboost') return 'MySocialsBoost';
+        return s;
+    }
+
+    function canonicalProviderId(p) {
+        const lc = (p || '').toString().toLowerCase().replace(/\s+/g, '');
+        if (lc === 'mysocialsboost' || lc === 'mysocials' || lc === 'mysocialgroup' || lc === 'mysocialgroups') return 'mysocialsboost';
+        if (lc === 'smmk' || lc === 'smmkings' || lc === 'smm' || lc === 'smmkingscom') return 'smmkings';
+        if (lc === 'justanotherpanel' || lc === 'jap' || lc === 'justanother') return 'justanotherpanel';
+        if (lc === 'peakerr' || lc === 'peakar' || lc === 'pekerr') return 'peakerr';
+        return lc; // default to normalized id
+    }
+
+    async function loadServicesConfiguration() {
+        try {
+            // Fetch platforms
+            const platformsRes = await fetch('/api/services/platforms');
+            const platformsData = await platformsRes.json();
+            if (!platformsData.success || !platformsData.platforms) {
+                throw new Error('Failed to load platforms');
+            }
+            const platforms = platformsData.platforms;
+
+            // Fetch current overrides
+            const overridesRes = await fetch('/api/services/overrides');
+            const overridesData = await overridesRes.json();
+            const overrides = overridesData.success ? (overridesData.overrides || {}) : {};
+
+            const gridContainer = document.getElementById('services-grid');
+            gridContainer.innerHTML = '';
+
+            for (const platform of platforms) {
+                // Fetch engagements for this platform
+                const engRes = await fetch(`/api/services/engagements?platform=${encodeURIComponent(platform)}`);
+                const engData = await engRes.json();
+                if (!engData.success || !engData.engagements) continue;
+                const engagements = engData.engagements;
+
+                // Create platform card
+                const card = document.createElement('div');
+                card.className = 'card mb-4';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <strong>${platform}</strong>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-dark table-striped table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th style="width: 15%;">Engagement</th>
+                                        <th style="width: 15%;">Provider</th>
+                                        <th style="width: 10%;">Service ID</th>
+                                        <th style="width: 10%;">Cost/1K</th>
+                                        <th style="width: 10%;">Min Qty</th>
+                                        <th style="width: 10%;">Max Qty</th>
+                                        <th style="width: 20%;">Current Selection</th>
+                                        <th style="width: 10%;">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tbody-${platform.replace(/\s+/g, '-')}">
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                `;
+                gridContainer.appendChild(card);
+
+                const tbody = document.getElementById(`tbody-${platform.replace(/\s+/g, '-')}`);
+
+                for (const engagement of engagements) {
+                    // Fetch available services for this platform/engagement
+                    const svcRes = await fetch(`/api/services/by_category?platform=${encodeURIComponent(platform)}&engagement=${encodeURIComponent(engagement)}`);
+                    const svcData = await svcRes.json();
+                    const services = svcData.success ? (svcData.services || []) : [];
+
+                    // Get current override
+                    const currentOverride = (overrides[platform] || {})[engagement];
+                    const currentDisplay = currentOverride 
+                        ? `<span class="text-white">${formatProviderLabel(currentOverride.provider_label || currentOverride.provider)} - #${currentOverride.service_id}</span>`
+                        : '<em class="text-white">Auto (cheapest)</em>';
+
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td><strong>${engagement}</strong></td>
+                        <td>
+                            <select class="form-select form-select-sm provider-select" data-platform="${platform}" data-engagement="${engagement}">
+                                <option value="">-- Select Provider --</option>
+                            </select>
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm service-id-input" 
+                                   data-platform="${platform}" data-engagement="${engagement}" 
+                                   placeholder="Service ID" min="1">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm cost-input" 
+                                   data-platform="${platform}" data-engagement="${engagement}" 
+                                   placeholder="$" step="0.0001" min="0">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm min-qty-input" 
+                                   data-platform="${platform}" data-engagement="${engagement}" 
+                                   placeholder="Min" min="0">
+                        </td>
+                        <td>
+                            <input type="number" class="form-control form-control-sm max-qty-input" 
+                                   data-platform="${platform}" data-engagement="${engagement}" 
+                                   placeholder="Max" min="0">
+                        </td>
+                        <td class="current-selection text-white">${currentDisplay}</td>
+                        <td>
+                            <button class="btn btn-sm btn-success save-btn" 
+                                    data-platform="${platform}" data-engagement="${engagement}">
+                                Save
+                            </button>
+                        </td>
+                    `;
+                    tbody.appendChild(row);
+
+                    // Populate provider dropdown with all four providers
+                    const providerSelect = row.querySelector('.provider-select');
+                    const allProviders = [
+                        { value: 'justanotherpanel', label: 'JustAnotherPanel' },
+                        { value: 'peakerr', label: 'Peakerr' },
+                        { value: 'smmkings', label: 'SMM Kings' },
+                        { value: 'mysocialsboost', label: 'MySocialsBoost' }
+                    ];
+                    allProviders.forEach(prov => {
+                        const opt = document.createElement('option');
+                        opt.value = prov.value;
+                        opt.textContent = prov.label;
+                        providerSelect.appendChild(opt);
+                    });
+
+                    // Pre-fill with override if exists, otherwise use default from CSV
+                    if (currentOverride) {
+                        providerSelect.value = canonicalProviderId(currentOverride.provider || '');
+                        row.querySelector('.service-id-input').value = currentOverride.service_id || '';
+                        const costInp = row.querySelector('.cost-input');
+                        const minInp = row.querySelector('.min-qty-input');
+                        const maxInp = row.querySelector('.max-qty-input');
+                        if (costInp) costInp.value = (currentOverride.rate_per_1k != null ? currentOverride.rate_per_1k : '');
+                        if (minInp) minInp.value = (currentOverride.min_qty != null ? currentOverride.min_qty : '');
+                        if (maxInp) maxInp.value = (currentOverride.max_qty != null ? currentOverride.max_qty : '');
+                    } else if (services.length > 0) {
+                        // Pre-fill with cheapest service from CSV
+                        const defaultSvc = services[0]; // Already sorted by cheapest in list_services
+                        providerSelect.value = defaultSvc.provider || '';
+                        row.querySelector('.service-id-input').value = defaultSvc.service_id || '';
+                        const costInp = row.querySelector('.cost-input');
+                        const minInp = row.querySelector('.min-qty-input');
+                        const maxInp = row.querySelector('.max-qty-input');
+                        if (costInp) costInp.value = (defaultSvc.rate_per_1k != null ? defaultSvc.rate_per_1k : '');
+                        if (minInp) minInp.value = (defaultSvc.min_qty != null ? defaultSvc.min_qty : '');
+                        if (maxInp) maxInp.value = (defaultSvc.max_qty != null ? defaultSvc.max_qty : '');
+                    }
+
+                    // Attach save handler
+                    const saveBtn = row.querySelector('.save-btn');
+                    saveBtn.addEventListener('click', async () => {
+                        const provider = providerSelect.value.trim();
+                        const serviceIdStr = row.querySelector('.service-id-input').value.trim();
+                        const costStr = (row.querySelector('.cost-input')?.value || '').trim();
+                        const minQtyStr = (row.querySelector('.min-qty-input')?.value || '').trim();
+                        const maxQtyStr = (row.querySelector('.max-qty-input')?.value || '').trim();
+                        
+                        if (!provider || !serviceIdStr) {
+                            alert('Please select a provider and enter a service ID.');
+                            return;
+                        }
+
+                        const serviceId = parseInt(serviceIdStr);
+                        if (isNaN(serviceId) || serviceId <= 0) {
+                            alert('Service ID must be a positive number.');
+                            return;
+                        }
+
+                        let costPer1k = null;
+                        if (costStr !== '') {
+                            const v = parseFloat(costStr);
+                            if (isNaN(v) || v < 0) { alert('Cost/1K must be 0 or a positive number.'); return; }
+                            costPer1k = v;
+                        }
+                        let minQty = null;
+                        let maxQty = null;
+                        if (minQtyStr !== '') {
+                            const v = parseInt(minQtyStr);
+                            if (isNaN(v) || v < 0) { alert('Min Qty must be 0 or a positive integer.'); return; }
+                            minQty = v;
+                        }
+                        if (maxQtyStr !== '') {
+                            const v = parseInt(maxQtyStr);
+                            if (isNaN(v) || v < 0) { alert('Max Qty must be 0 or a positive integer.'); return; }
+                            maxQty = v;
+                        }
+                        if (minQty != null && maxQty != null && minQty > maxQty) {
+                            alert('Min Qty cannot be greater than Max Qty.');
+                            return;
+                        }
+
+                        // Find matching service from available services
+                        const providerCanon = canonicalProviderId(provider);
+                        const matchingService = services.find(s => {
+                            const sp = canonicalProviderId(s.provider || s.provider_label);
+                            const sid = (typeof s.service_id === 'string') ? parseInt(s.service_id) : s.service_id;
+                            return sp === providerCanon && sid === serviceId;
+                        });
+
+                        if (!matchingService) {
+                            const confirmSave = confirm(
+                                `Warning: Service ID ${serviceId} for provider ${provider} was not found in the CSV.\n\n` +
+                                `Do you want to save it anyway? The system will attempt to use it, but it may fail if invalid.`
+                            );
+                            if (!confirmSave) return;
+                        }
+
+                        saveBtn.disabled = true;
+                        saveBtn.textContent = 'Saving...';
+
+                        try {
+                            const res = await fetch('/api/services/overrides', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    platform: platform,
+                                    engagement: engagement,
+                                    provider: providerCanon,
+                                    service_id: serviceId,
+                                    provider_label: matchingService ? matchingService.provider_label : provider,
+                                    name: matchingService ? matchingService.name : null,
+                                    min_qty: minQty,
+                                    max_qty: maxQty,
+                                    rate_per_1k: costPer1k !== null ? costPer1k : (matchingService ? matchingService.rate_per_1k : null),
+                                    tier: matchingService ? matchingService.tier : null,
+                                    notes: matchingService ? matchingService.notes : null
+                                })
+                            });
+                            const data = await res.json();
+                            if (data.success) {
+                                const currentCell = row.querySelector('.current-selection');
+                                const displayLabel = matchingService ? (matchingService.provider_label || matchingService.provider) : provider;
+                                currentCell.innerHTML = `${formatProviderLabel(displayLabel)} - #${serviceId}`;
+                                
+                                // Keep the input values persistent after save
+                                providerSelect.value = providerCanon;
+                                row.querySelector('.service-id-input').value = serviceId;
+                                const costInp = row.querySelector('.cost-input');
+                                const minInp = row.querySelector('.min-qty-input');
+                                const maxInp = row.querySelector('.max-qty-input');
+                                if (costInp) costInp.value = (costPer1k !== null ? costPer1k : '');
+                                if (minInp) minInp.value = (minQty !== null ? minQty : '');
+                                if (maxInp) maxInp.value = (maxQty !== null ? maxQty : '');
+                                
+                                showStatus('Service preference saved!', 'success', 'services-status-area', 'services-status-message', 3000);
+                            } else {
+                                alert('Failed to save: ' + (data.error || 'Unknown error'));
+                            }
+                        } catch (e) {
+                            alert('Error saving service preference: ' + e.message);
+                        } finally {
+                            saveBtn.disabled = false;
+                            saveBtn.textContent = 'Save';
+                        }
+                    });
+                }
+            }
+
+            showStatus('Services configuration loaded', 'success', 'services-status-area', 'services-status-message', 3000);
+        } catch (e) {
+            console.error('Error loading services configuration:', e);
+            showStatus('Error loading services: ' + e.message, 'danger', 'services-status-area', 'services-status-message');
+        }
+    }
+
+    // Load on page ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', loadServicesConfiguration);
+    } else {
+        loadServicesConfiguration();
+    }
+})();
+</script>
+{% endblock %}

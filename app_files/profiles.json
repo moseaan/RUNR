@@ -70,8 +70,8 @@
             {
                 "type": "Followers",
                 "platform": "Instagram",
-                "service_id": 579,
-                "rate_per_1k": 4,
+                "service_id": 25110,
+                "rate_per_1k": 1.19,
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 10,
@@ -92,8 +92,8 @@
             {
                 "type": "Followers",
                 "platform": "Instagram",
-                "service_id": 579,
-                "rate_per_1k": 4,
+                "service_id": 25110,
+                "rate_per_1k": 1.19,
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 10,
@@ -129,6 +129,28 @@
             "random_delay": true,
             "min_delay": 1800,
             "max_delay": 3600
+        }
+    },
+    "Instagram Likes (+100)": {
+        "engagements": [
+            {
+                "type": "Likes",
+                "platform": "Instagram",
+                "service_id": 5000,
+                "rate_per_1k": 2.1,
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 20,
+                "max_quantity": 30,
+                "loops": 5
+            }
+        ],
+        "loop_settings": {
+            "loops": 5,
+            "delay": 0,
+            "random_delay": true,
+            "min_delay": 60,
+            "max_delay": 120
         }
     }
 }

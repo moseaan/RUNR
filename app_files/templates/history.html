@@ -5,6 +5,14 @@
 {% block content %}
     <div class="container">
         <h2>Promotion History</h2>
+        
+        <!-- Pagination Info -->
+        {% if total_items > 0 %}
+        <div class="mb-3 text-white">
+            <small>Showing {{ ((current_page - 1) * 10) + 1 }} - {{ [current_page * 10, total_items] | min }} of {{ total_items }} entries</small>
+        </div>
+        {% endif %}
+        
         <div id="history-list">
             {% if history %}
                 <table>
@@ -55,14 +63,46 @@
                                             {% if link %} Link: <a href="{{ link }}" target="_blank">{{ link[:40] }}{% if link|length > 40 %}...{% endif %}</a><br>{% endif %}
                                             {% if entry.get('quantity') %} Qty/Loops: {{ entry.get('quantity') }} {% endif %}
                                         {% endif %}
+                                        {% set single_provider = entry.get('provider') %}
+                                        {% set single_order_id = entry.get('order_id') %}
+                                        {% set multiple_orders = entry.get('orders') %}
+                                        {% if single_provider and single_order_id %}
+                                            <div class="orders-section mt-1">
+                                                <div class="order-item" data-provider="{{ single_provider }}" data-order-id="{{ single_order_id }}">
+                                                    <div><strong>Order:</strong> {{ single_order_id }} <span class="small text-white fw-bold">({{ single_provider }})</span></div>
+                                                    <div class="order-status-fields small">
+                                                        Charge: <span class="order-status-charge">-</span>
+                                                        Start: <span class="order-status-start">-</span>
+                                                        Status: <span class="order-status-status">-</span>
+                                                        Remaining: <span class="order-status-remains">-</span>
+                                                        Currency: <span class="order-status-currency">-</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endif %}
+                                        {% if multiple_orders %}
+                                            <div class="orders-section mt-1">
+                                                {% for ord in multiple_orders %}
+                                                    {% set p = ord.get('provider') %}
+                                                    {% set oid = ord.get('order_id') %}
+                                                    {% if p and oid %}
+                                                        <div class="order-item" data-provider="{{ p }}" data-order-id="{{ oid }}">
+                                                            <div><strong>Order:</strong> {{ oid }} <span class="small text-white fw-bold">({{ p }})</span></div>
+                                                            <div class="order-status-fields small">
+                                                                Charge: <span class="order-status-charge">-</span>
+                                                                Start: <span class="order-status-start">-</span>
+                                                                Status: <span class="order-status-status">-</span>
+                                                                Remaining: <span class="order-status-remains">-</span>
+                                                                Currency: <span class="order-status-currency">-</span>
+                                                            </div>
+                                                        </div>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
                                     </td>
                                     {# #}
-                                    {# OLD STATUS LOGIC #}
-                                    {% set status = entry.get('status', 'unknown') %}
-                                    <td class="status-cell status-{{ status | lower }}">
-                                        {{ status | capitalize }}
-                                    </td>
-                                    {# #}
+                                    <td class="status-cell">Loading...</td>
                                     {# OLD MESSAGE LOGIC #}
                                     <td class="message-cell">{{ entry.get('message', '') }}</td>
                                     {# #}
@@ -99,5 +139,46 @@
                 <p>No history entries yet.</p>
             {% endif %}
         </div>
+        
+        <!-- Pagination Controls -->
+        {% if total_pages > 1 %}
+        <nav aria-label="History pagination" class="mt-4">
+            <ul class="pagination justify-content-center">
+                <!-- Previous Button -->
+                <li class="page-item {% if current_page == 1 %}disabled{% endif %}">
+                    <a class="page-link" href="?page={{ current_page - 1 }}" {% if current_page == 1 %}tabindex="-1" aria-disabled="true"{% endif %}>Previous</a>
+                </li>
+                
+                <!-- Page Numbers -->
+                {% set start_page = [1, current_page - 2] | max %}
+                {% set end_page = [total_pages, current_page + 2] | min %}
+                
+                {% if start_page > 1 %}
+                    <li class="page-item"><a class="page-link" href="?page=1">1</a></li>
+                    {% if start_page > 2 %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                {% endif %}
+                
+                {% for page_num in range(start_page, end_page + 1) %}
+                    <li class="page-item {% if page_num == current_page %}active{% endif %}">
+                        <a class="page-link" href="?page={{ page_num }}">{{ page_num }}</a>
+                    </li>
+                {% endfor %}
+                
+                {% if end_page < total_pages %}
+                    {% if end_page < total_pages - 1 %}
+                        <li class="page-item disabled"><span class="page-link">...</span></li>
+                    {% endif %}
+                    <li class="page-item"><a class="page-link" href="?page={{ total_pages }}">{{ total_pages }}</a></li>
+                {% endif %}
+                
+                <!-- Next Button -->
+                <li class="page-item {% if current_page == total_pages %}disabled{% endif %}">
+                    <a class="page-link" href="?page={{ current_page + 1 }}" {% if current_page == total_pages %}tabindex="-1" aria-disabled="true"{% endif %}>Next</a>
+                </li>
+            </ul>
+        </nav>
+        {% endif %}
     </div>
 {% endblock %} 

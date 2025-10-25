@@ -1,3 +1,77 @@
+    // Provider normalization for comparisons (inside scope)
+    function canonicalProviderId(p) {
+        const lc = (p || '').toString().toLowerCase().replace(/\s+/g, '');
+        if (lc === 'mysocialsboost' || lc === 'mysocials' || lc === 'mysocialgroup' || lc === 'mysocialgroups') return 'mysocialsboost';
+        if (lc === 'smmk' || lc === 'smmkings' || lc === 'smm' || lc === 'smmkingscom') return 'smmkings';
+        if (lc === 'justanotherpanel' || lc === 'jap' || lc === 'justanother') return 'justanotherpanel';
+        if (lc === 'peakerr' || lc === 'peakar' || lc === 'pekerr') return 'peakerr';
+        return lc;
+    }
+
+    async function handleEditMonitoring(event) {
+        console.log('handleEditMonitoring called');
+        const monitorListStatus = document.getElementById('monitor-list-status');
+        const btn = event.currentTarget;
+        const targetId = btn.getAttribute('data-target-id');
+        const oldUsername = btn.getAttribute('data-target-name') || '';
+        const oldProfile = btn.getAttribute('data-profile-name') || '';
+
+        // Simple prompts for now; can be upgraded to a modal later
+        const newUsername = prompt('Edit target username:', oldUsername);
+        if (newUsername === null) return; // cancelled
+        const newProfile = prompt('Edit promotion profile name:', oldProfile);
+        if (newProfile === null) return; // cancelled
+        const username = newUsername.trim();
+        const profileName = newProfile.trim();
+        if (!username || !profileName) {
+            if (monitorListStatus) showTemporaryStatus(monitorListStatus, 'Username and profile cannot be empty.', 'warning');
+            return;
+        }
+
+        try {
+            btn.disabled = true;
+            if (monitorListStatus) showTemporaryStatus(monitorListStatus, `Saving edits for ${oldUsername}...`, 'info', 0);
+            const res = await apiCall(`/api/monitoring/targets/${targetId}`, 'PUT', {
+                target_username: username,
+                promotion_profile_name: profileName
+            });
+            if (res && res.success && res.targets) {
+                renderMonitoringTargets(res.targets);
+                if (monitorListStatus) showTemporaryStatus(monitorListStatus, 'Edits saved.', 'success');
+            } else {
+                if (monitorListStatus) showTemporaryStatus(monitorListStatus, res.error || 'Failed to save edits.', 'danger');
+                btn.disabled = false;
+            }
+        } catch (e) {
+            if (monitorListStatus) showTemporaryStatus(monitorListStatus, 'Error saving edits.', 'danger');
+            btn.disabled = false;
+        }
+    }
+    // Overrides loader/cacher (inside scope)
+    async function loadServiceOverrides() {
+        if (serviceOverridesCache) return serviceOverridesCache;
+        try {
+            const res = await apiCall('/api/services/overrides', 'GET');
+            if (res && res.success) {
+                serviceOverridesCache = res.overrides || {};
+            } else {
+                serviceOverridesCache = {};
+            }
+        } catch(_) { serviceOverridesCache = {}; }
+        return serviceOverridesCache;
+    }
+    function getServiceOverride(platform, engagement) {
+        const ov = serviceOverridesCache || {};
+        if (!platform || !engagement) return null;
+        const canon = (s) => (s || '').toString().toLowerCase().replace(/[^a-z0-9]/gi, '');
+        const p = canon(platform);
+        const e = canon(engagement);
+        const pkey = Object.keys(ov).find(k => canon(k) === p);
+        if (!pkey) return null;
+        const perPlat = ov[pkey] || {};
+        const ekey = Object.keys(perPlat).find(k => canon(k) === e);
+        return ekey ? perPlat[ekey] : null;
+    }
 // JavaScript for fetching data and handling UI interactions - will be added later
 
 console.log("Script loaded.");
@@ -13,6 +87,8 @@ document.addEventListener('DOMContentLoaded', function() {
     let tempStatusTimeouts = {}; // Declare ONCE here
     let engagementOptionsCache = []; // Define cache here
     let profileModal = null; // <<< Assign the modal element here after DOM load
+    let historyPollIntervalId = null;
+    let serviceOverridesCache = null; // cache of overrides by platform->engagement
 
     // --- Element Refs (Get elements needed across different initializers/listeners) ---
     const runProfileBtn = document.getElementById('start-profile-promo-btn'); 
@@ -77,6 +153,94 @@ document.addEventListener('DOMContentLoaded', function() {
     function removeActiveJobId(jobId) {
         const list = getStoredActiveJobs().filter(id => id !== jobId);
         setStoredActiveJobs(list);
+    }
+
+    // Store job metadata for restoration
+    const JOB_META_KEY = 'mim_job_metadata';
+    function getJobMetadata() {
+        try {
+            const raw = localStorage.getItem(JOB_META_KEY);
+            return raw ? JSON.parse(raw) : {};
+        } catch (_) { return {}; }
+    }
+    function setJobMetadata(meta) {
+        try { localStorage.setItem(JOB_META_KEY, JSON.stringify(meta)); } catch(_) {}
+    }
+    function saveJobMeta(jobId, containerId, label, link) {
+        const meta = getJobMetadata();
+        meta[jobId] = { containerId, label, link, timestamp: Date.now() };
+        setJobMetadata(meta);
+    }
+    function removeJobMeta(jobId) {
+        const meta = getJobMetadata();
+        delete meta[jobId];
+        setJobMetadata(meta);
+    }
+
+    // Restore active jobs on page load
+    async function restoreActiveJobs() {
+        const storedIds = getStoredActiveJobs();
+        const meta = getJobMetadata();
+        if (!storedIds || storedIds.length === 0) return;
+
+        // Fetch current active jobs from server
+        let serverActiveJobs = [];
+        try {
+            const res = await apiCall('/api/jobs/active', 'GET');
+            if (res && res.success && Array.isArray(res.jobs)) {
+                serverActiveJobs = res.jobs.map(j => j.job_id);
+            }
+        } catch (e) {
+            console.warn('Failed to fetch active jobs from server:', e);
+        }
+
+        // Restore rows for jobs that are still active on server
+        for (const jobId of storedIds) {
+            // Check if job is still active on server
+            if (!serverActiveJobs.includes(jobId)) {
+                // Job completed, remove from storage
+                removeActiveJobId(jobId);
+                removeJobMeta(jobId);
+                continue;
+            }
+
+            // Check if row already exists
+            if (document.getElementById(`job-${jobId}`)) {
+                continue; // Already displayed
+            }
+
+            // Get metadata
+            const jobMeta = meta[jobId];
+            if (!jobMeta) {
+                // No metadata, try to fetch status and create minimal row
+                try {
+                    const statusRes = await apiCall(`/api/job_status/${encodeURIComponent(jobId)}`);
+                    if (statusRes && statusRes.success) {
+                        const status = (statusRes.status || '').toLowerCase();
+                        if (['success','failed','stopped'].includes(status)) {
+                            removeActiveJobId(jobId);
+                            removeJobMeta(jobId);
+                            continue;
+                        }
+                        // Create minimal row
+                        const containerId = jobId.startsWith('single_') ? 'single-promo-jobs' : 'auto-promo-jobs';
+                        const label = jobId.startsWith('single_') ? 'Single Promo' : 'Auto Promo';
+                        createJobRow(containerId, jobId, label, '');
+                        startPerJobPolling(jobId);
+                    }
+                } catch (e) {
+                    console.warn(`Failed to restore job ${jobId}:`, e);
+                }
+                continue;
+            }
+
+            // Restore with full metadata
+            const { containerId, label, link } = jobMeta;
+            if (containerId && label) {
+                createJobRow(containerId, jobId, label, link || '');
+                startPerJobPolling(jobId);
+            }
+        }
     }
 
     // Generic API Call Helper
@@ -211,19 +375,17 @@ document.addEventListener('DOMContentLoaded', function() {
         statusMessage.textContent = message;
         statusArea.style.display = 'block'; // Make sure area is visible
 
-        // --- REMOVED Auto-hide logic ---
-        /*
-        // Clear any existing timeout for THIS specific area/message combo if needed
-        // (Using a global or scoped timeout manager might be better if clearing is frequent)
-
         // Auto-hide after duration if specified
         if (duration > 0) {
             setTimeout(() => {
-                statusArea.style.display = 'none'; // Hide the area
+                try {
+                    statusArea.style.display = 'none';
+                } catch(_) {}
             }, duration);
         }
-        */
     }
+    // Expose globally for inline page scripts (e.g., services.html)
+    try { window.showStatus = showStatus; } catch(_) {}
     
     // Show status temporarily in a specific element (different from main status area)
     function showTemporaryStatus(element, message, type = 'info', duration = 3000, isHtml = false) {
@@ -268,6 +430,69 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Job Rows and Per-Job Polling (for async promos) ---
     const jobPollers = {}; // jobId -> intervalId
+    const jobDelayCountdowns = {}; // jobId -> { intervalId, endAt }
+
+    function clearJobCountdown(jobId) {
+        const cd = jobDelayCountdowns[jobId];
+        if (cd && cd.intervalId) {
+            try { clearInterval(cd.intervalId); } catch(_) {}
+        }
+        delete jobDelayCountdowns[jobId];
+    }
+
+    function parseDelaySeconds(message) {
+        if (!message || typeof message !== 'string') return null;
+        const m = message.toLowerCase();
+        // Try mm:ss
+        let mmss = m.match(/\b(\d{1,2}):(\d{2})\b/);
+        if (mmss) {
+            const mm = parseInt(mmss[1], 10);
+            const ss = parseInt(mmss[2], 10);
+            if (!isNaN(mm) && !isNaN(ss)) return mm * 60 + ss;
+        }
+        // Try "in 123s" or "123 seconds"
+        let secs = m.match(/\b(\d+)\s*(s|sec|secs|second|seconds)\b/);
+        if (secs) {
+            const s = parseInt(secs[1], 10);
+            if (!isNaN(s)) return s;
+        }
+        // Try phrases like "delay before next loop" with number
+        let numb = m.match(/\b(\d{1,5})\b/);
+        if (numb && /delay|next\s*loop|wait|cooldown/.test(m)) {
+            const s = parseInt(numb[1], 10);
+            if (!isNaN(s)) return s;
+        }
+        return null;
+    }
+
+    function startJobCountdown(jobId, seconds, stepEl, baseLabel) {
+        if (!jobId || !stepEl || !seconds || seconds <= 0) return;
+        // Reuse existing if shorter/new
+        const endAt = Date.now() + seconds * 1000;
+        // Clear existing interval first
+        clearJobCountdown(jobId);
+        jobDelayCountdowns[jobId] = {
+            endAt,
+            intervalId: setInterval(() => {
+                const remainingMs = endAt - Date.now();
+                if (remainingMs <= 0) {
+                    clearJobCountdown(jobId);
+                    stepEl.textContent = baseLabel ? `${baseLabel}: resuming...` : 'Status: resuming...';
+                    return;
+                }
+                const rem = Math.ceil(remainingMs / 1000);
+                const mins = Math.floor(rem / 60);
+                const secs = rem % 60;
+                const pretty = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+                stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty}` : `Status: next loop in ${pretty}`;
+            }, 1000)
+        };
+        // Update immediately so user sees it tick without waiting 1s
+        const mins0 = Math.floor(seconds / 60);
+        const secs0 = seconds % 60;
+        const pretty0 = mins0 > 0 ? `${mins0}m ${secs0}s` : `${secs0}s`;
+        stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty0}` : `Status: next loop in ${pretty0}`;
+    }
 
     function createJobRow(containerId, jobId, label, link) {
         const container = document.getElementById(containerId);
@@ -330,7 +555,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (['success','failed','stopped'].includes(status)) {
                     onDone(status, data.message);
                     // Remove from persisted active list on terminal state
-                    try { removeActiveJobId(jobId); } catch(_) {}
+                    try { 
+                        removeActiveJobId(jobId);
+                        removeJobMeta(jobId);
+                    } catch(_) {}
                     return false; // stop
                 }
                 return true; // keep polling
@@ -364,7 +592,15 @@ document.addEventListener('DOMContentLoaded', function() {
                         if (/logging into doge?hype/i.test(msg)) {
                             msg = 'navigating to dogehype.com/login';
                         }
-                        stepEl.textContent = `Status: ${msg}`;
+                        // Detect delay-before-next-loop and start live countdown
+                        const delaySecs = parseDelaySeconds(msg);
+                        if (delaySecs != null && /delay|next\s*loop|wait|cooldown|sleep/i.test(msg)) {
+                            startJobCountdown(jobId, delaySecs, stepEl, 'Status');
+                        } else {
+                            // If we previously had a countdown for this job, clear it
+                            clearJobCountdown(jobId);
+                            stepEl.textContent = `Status: ${msg}`;
+                        }
                     }
                     // If finished, remove Stop button; if stopping, disable it
                     if (stopBtn) {
@@ -378,7 +614,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 () => {
                     clearInterval(intervalId);
                     delete jobPollers[jobId];
-                    try { removeActiveJobId(jobId); } catch(_) {}
+                    clearJobCountdown(jobId);
+                    try { 
+                        removeActiveJobId(jobId);
+                        removeJobMeta(jobId);
+                    } catch(_) {}
                     if (stopBtn) {
                         // On completion, remove the Stop button entirely
                         try { stopBtn.remove(); } catch (e) { /* ignore */ }
@@ -435,13 +675,59 @@ document.addEventListener('DOMContentLoaded', function() {
         const engagement = engagementSelect.value;
         const link = linkInput.value.trim();
         const quantity = quantityInput.value.trim();
-        // Retrieve selected service (set when user picks from flyout)
+        // Resolve selected service (prefer saved override; else use dataset; else cheapest)
         let selectedService = null;
+        // 1) Try override
         try {
-            if (engagementSelect && engagementSelect.dataset && engagementSelect.dataset.selectedService) {
-                selectedService = JSON.parse(engagementSelect.dataset.selectedService);
+            await loadServiceOverrides();
+            const ov = getServiceOverride(platform, engagement);
+            if (ov) {
+                // Try to find in CSV list; if not available yet, construct minimal object
+                let services = [];
+                try { services = await loadServicesByCategory(platform, engagement); } catch(e) { services = []; }
+                let svc = (services || []).find(s => {
+                    const sp = canonicalProviderId(s.provider || s.provider_label);
+                    const sid = (typeof s.service_id === 'string') ? parseInt(s.service_id) : s.service_id;
+                    const ovid = (typeof ov.service_id === 'string') ? parseInt(ov.service_id) : ov.service_id;
+                    return sp === canonicalProviderId(ov.provider) && sid === ovid;
+                }) || null;
+                if (!svc) {
+                    svc = {
+                        provider: ov.provider,
+                        provider_label: ov.provider_label || ov.provider,
+                        service_id: ov.service_id,
+                        min_qty: ov.min_qty,
+                        max_qty: ov.max_qty,
+                        rate_per_1k: ov.rate_per_1k
+                    };
+                }
+                selectedService = svc;
+                try { engagementSelect.dataset.selectedService = JSON.stringify(svc); } catch(_) {}
+                // Update bounds/cost based on override
+                setSinglePromoQuantityBoundsFromService(selectedService);
+                updateSingleCostDisplay(selectedService);
             }
-        } catch (_) { selectedService = null; }
+        } catch(_) { /* ignore */ }
+        // 2) If still not resolved, try dataset
+        if (!selectedService) {
+            try {
+                if (engagementSelect && engagementSelect.dataset && engagementSelect.dataset.selectedService) {
+                    selectedService = JSON.parse(engagementSelect.dataset.selectedService);
+                }
+            } catch (_) { selectedService = null; }
+        }
+        // 3) Fallback to cheapest
+        if (!selectedService) {
+            try {
+                const services = await loadServicesByCategory(platform, engagement);
+                if (services && services.length > 0) {
+                    selectedService = services[0];
+                    try { engagementSelect.dataset.selectedService = JSON.stringify(selectedService); } catch(_) {}
+                    setSinglePromoQuantityBoundsFromService(selectedService);
+                    updateSingleCostDisplay(selectedService);
+                }
+            } catch (e) { /* ignore */ }
+        }
 
         if (!platform || !engagement) {
             showStatus("Please select Platform and Engagement type.", 'warning', statusAreaId, statusMessageId, 3000);
@@ -456,20 +742,6 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Auto-pick the only service for this engagement if none explicitly selected
-        if (!selectedService) {
-            try {
-                const services = await loadServicesByCategory(platform, engagement);
-                if (services && services.length > 0) {
-                    selectedService = services[0];
-                    // Persist for UI consistency
-                    try { engagementSelect.dataset.selectedService = JSON.stringify(selectedService); } catch(_) {}
-                    // Also update bounds/cost
-                    setSinglePromoQuantityBoundsFromService(selectedService);
-                    updateSingleCostDisplay(selectedService);
-                }
-            } catch (e) { /* ignore */ }
-        }
         if (!selectedService) {
             showStatus("No service available for this engagement.", 'danger', statusAreaId, statusMessageId, 4000);
             return;
@@ -514,8 +786,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     showStatus(data.message || 'Single promo scheduled.', 'info', statusAreaId, statusMessageId);
                     // Create per-job row and start polling that job only
                     const svcName = (selectedService.name || ((selectedService.provider_label || selectedService.provider) + ' #' + selectedService.service_id));
-                    createJobRow('single-promo-jobs', jobId, `Single Promo: ${engagement} — ${svcName}`, link);
-                    try { addActiveJobId(jobId); } catch(_) {}
+                    const label = `Single Promo: ${engagement} — ${svcName}`;
+                    createJobRow('single-promo-jobs', jobId, label, link);
+                    try { 
+                        addActiveJobId(jobId);
+                        saveJobMeta(jobId, 'single-promo-jobs', label, link);
+                    } catch(_) {}
                     startPerJobPolling(jobId);
                 } else {
                     showStatus(data.error || 'Failed to schedule single promo.', 'danger', statusAreaId, statusMessageId);
@@ -544,7 +820,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Create per-job row and start per-job polling (like single promo)
                     const label = `Auto Promo: ${profileName}${platform ? ' — ' + platform : ''}`;
                     createJobRow('auto-promo-jobs', jobId, label, link);
-                    try { addActiveJobId(jobId); } catch(_) {}
+                    try { 
+                        addActiveJobId(jobId);
+                        saveJobMeta(jobId, 'auto-promo-jobs', label, link);
+                    } catch(_) {}
                     startPerJobPolling(jobId);
                 } else {
                     showStatus(data.error || 'Failed to schedule profile promo.', 'danger', statusAreaId, statusMessageId);
@@ -751,27 +1030,63 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function updateSingleCostDisplay(selectedService = null) {
         const el = document.getElementById('single-cost-display');
+        const svcInfoEl = document.getElementById('single-service-info');
         const qtyInput = document.getElementById('quantity-input');
         const engagementSelect = document.getElementById('engagement-select');
+        const platformSelect = document.getElementById('platform-select');
         if (!el) return;
-        // Resolve selected service from dataset if not passed
-        if (!selectedService && engagementSelect && engagementSelect.dataset && engagementSelect.dataset.selectedService) {
-            try { selectedService = JSON.parse(engagementSelect.dataset.selectedService); } catch(_) { selectedService = null; }
+        let svc = selectedService;
+        // Prefer saved override
+        const platform = platformSelect ? platformSelect.value : '';
+        const engagement = engagementSelect ? engagementSelect.value : '';
+        let ov = null;
+        if (platform && engagement && serviceOverridesCache) {
+            try { ov = getServiceOverride(platform, engagement); } catch(_) { ov = null; }
         }
-        if (!selectedService) {
+        if (!ov && platform && engagement && !serviceOverridesCache) {
+            loadServiceOverrides().then(() => {
+                updateSingleCostDisplay(selectedService);
+            }).catch(() => {});
+        }
+        if (ov) {
+            svc = {
+                provider: ov.provider,
+                provider_label: ov.provider_label || ov.provider,
+                service_id: ov.service_id,
+                min_qty: ov.min_qty,
+                max_qty: ov.max_qty,
+                rate_per_1k: ov.rate_per_1k
+            };
+            try { if (engagementSelect && engagementSelect.dataset) engagementSelect.dataset.selectedService = JSON.stringify(svc); } catch(_) {}
+        }
+        if (!svc && engagementSelect && engagementSelect.dataset && engagementSelect.dataset.selectedService) {
+            try { svc = JSON.parse(engagementSelect.dataset.selectedService); } catch(_) { svc = null; }
+        }
+        if (!svc) {
             el.textContent = '';
+            if (svcInfoEl) svcInfoEl.textContent = '';
             return;
         }
-        const rate = (selectedService.rate_per_1k != null) ? parseFloat(selectedService.rate_per_1k) : null;
+        if (svcInfoEl) {
+            const prov = (svc.provider || svc.provider_label || '').toString().toLowerCase();
+            let provAbbr = (svc.provider_label || svc.provider || '').toString().toUpperCase().replace(/\s+/g, '');
+            if (prov === 'justanotherpanel') provAbbr = 'JAP';
+            else if (prov === 'peakerr') provAbbr = 'PEAKERR';
+            else if (prov === 'smmkings') provAbbr = 'SMMK';
+            else if (prov === 'mysocialsboost') provAbbr = 'MSB';
+            svcInfoEl.textContent = `${provAbbr} #${svc.service_id}`;
+        }
+        const rate = (svc.rate_per_1k != null) ? parseFloat(svc.rate_per_1k) : null;
         const qty = qtyInput ? parseInt(qtyInput.value || '0', 10) : 0;
         const cost = (rate != null && !isNaN(qty)) ? (rate * qty / 1000.0) : null;
-        // Show only the total cost amount for Single Promo preview
         el.textContent = (cost != null) ? `Total Cost: ${formatCurrency(cost)}` : '';
     }
 
     function clearSingleCostDisplay() {
         const el = document.getElementById('single-cost-display');
         if (el) el.textContent = '';
+        const svcInfoEl = document.getElementById('single-service-info');
+        if (svcInfoEl) svcInfoEl.textContent = '';
     }
 
     // CSV is source of truth. No hardcoded fallback engagements.
@@ -932,13 +1247,41 @@ document.addEventListener('DOMContentLoaded', function() {
                     selectEl.value = eng;
                     let services = [];
                     try { services = await loadServicesByCategory(platform, eng); } catch(e) { services = []; }
-                    const svc = (services && services.length > 0) ? services[0] : null;
+                    // Prefer saved override if present (guarded)
+                    let ov = null;
+                    try {
+                        await loadServiceOverrides();
+                        ov = getServiceOverride(platform, eng);
+                    } catch(_) { ov = null; }
+                    let svc = null;
+                    if (ov) {
+                        // Try to find exact match in CSV services
+                        svc = (services || []).find(s => {
+                            const sp = canonicalProviderId(s.provider || s.provider_label);
+                            const sid = (typeof s.service_id === 'string') ? parseInt(s.service_id) : s.service_id;
+                            const ovid = (typeof ov.service_id === 'string') ? parseInt(ov.service_id) : ov.service_id;
+                            return sp === canonicalProviderId(ov.provider) && sid === ovid;
+                        }) || null;
+                        if (!svc) {
+                            // Construct minimal service object from override
+                            svc = {
+                                provider: ov.provider,
+                                provider_label: ov.provider_label || ov.provider,
+                                service_id: ov.service_id,
+                                min_qty: ov.min_qty,
+                                max_qty: ov.max_qty,
+                                rate_per_1k: ov.rate_per_1k
+                            };
+                        }
+                    }
+                    if (!svc) {
+                        svc = (services && services.length > 0) ? services[0] : null;
+                    }
                     if (svc) {
                         try { selectEl.dataset.selectedService = JSON.stringify(svc); } catch(_) {}
-                        const tierTxt = svc.tier ? ` [${svc.tier}]` : '';
-                        const svcName = (svc.name || ((svc.provider_label || svc.provider) + ' #' + svc.service_id));
-                        if (subLabel) subLabel.textContent = `${eng} — ${svcName}${tierTxt}`;
-                        btn.textContent = `${eng}${svcName ? ' — ' + svcName : ''}`;
+                        // Show only the engagement in the selector UI
+                        if (subLabel) subLabel.textContent = `${eng}`;
+                        if (btn) btn.textContent = `${eng}`;
                         if (idPrefix === 'single') {
                             setSinglePromoQuantityBoundsFromService(svc);
                             updateSingleCostDisplay(svc);
@@ -957,11 +1300,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (selectEl.dataset.selectedService) {
                 try {
                     const svc = JSON.parse(selectEl.dataset.selectedService);
-                    const svcName = (svc.name || ((svc.provider_label || svc.provider) + ' #' + svc.service_id));
                     const eng = selectEl.value || '';
                     if (eng) {
-                        subLabel.textContent = `${eng} — ${svcName}`;
-                        if (idPrefix === 'single') btn.textContent = `${eng} — ${svcName}`;
+                        // On restore, also show only engagement
+                        subLabel.textContent = `${eng}`;
+                        if (idPrefix === 'single') btn.textContent = `${eng}`;
                         // Ensure bounds and cost display reflect restored service
                         if (idPrefix === 'single') {
                             setSinglePromoQuantityBoundsFromService(svc);
@@ -970,7 +1313,43 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 } catch (_) { /* ignore */ }
             } else {
-                subLabel.textContent = '';
+                // If no saved selection, try to reflect override silently
+                try {
+                    const eng = selectEl.value || '';
+                    const platform = platformEl.value || '';
+                    const applyFromOverride = (ov) => {
+                        if (!ov) return;
+                        const constructed = {
+                            provider: ov.provider,
+                            provider_label: ov.provider_label || ov.provider,
+                            service_id: ov.service_id,
+                            min_qty: ov.min_qty,
+                            max_qty: ov.max_qty,
+                            rate_per_1k: ov.rate_per_1k
+                        };
+                        try { selectEl.dataset.selectedService = JSON.stringify(constructed); } catch(_) {}
+                        if (idPrefix === 'single') {
+                            setSinglePromoQuantityBoundsFromService(constructed);
+                            updateSingleCostDisplay(constructed);
+                        }
+                        // Also reflect engagement label
+                        if (subLabel) subLabel.textContent = `${eng}`;
+                        if (btn) btn.textContent = `${eng}`;
+                    };
+                    if (eng && platform) {
+                        // Use cache immediately if available
+                        if (serviceOverridesCache) {
+                            applyFromOverride(getServiceOverride(platform, eng));
+                        }
+                        // Refresh overrides asynchronously and apply if still relevant
+                        loadServiceOverrides().then(() => {
+                            if ((selectEl.value || '') === eng && (platformEl.value || '') === platform && !selectEl.dataset.selectedService) {
+                                applyFromOverride(getServiceOverride(platform, eng));
+                            }
+                        }).catch(()=>{});
+                    }
+                } catch(_) {}
+                // Do not clear labels here to avoid wiping out state set above
             }
         }
 
@@ -987,6 +1366,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('Single Promo elements not found; skipping initializeSinglePromoPage');
             return;
         }
+        // Warm overrides so engagement picks reflect current selection immediately
+        try { await loadServiceOverrides(); } catch(_) {}
         // Create custom engagement dropdown so we can anchor flyout to items
         const singleCustom = (typeof ensureCustomEngagementDropdown === 'function')
             ? ensureCustomEngagementDropdown(engagementSelect, platformSelect, 'single')
@@ -1234,10 +1615,37 @@ document.addEventListener('DOMContentLoaded', function() {
             } else if (isOnHistoryPage) {
                 console.log("Running History Page specific init...");
                 // Live status polling for History
+                function formatHistoryStatusText(text) {
+                    const s = (text == null) ? '' : String(text);
+                    // Replace standalone 'failed' with 'Stopped', preserve other tokens
+                    return s.replace(/\bfailed\b/gi, 'Stopped');
+                }
                 function applyStatusClass(cell, status) {
                     const base = 'status-cell';
-                    cell.className = `${base} status-${(status||'').toLowerCase()}`;
-                    cell.textContent = (status||'unknown').charAt(0).toUpperCase() + (status||'unknown').slice(1);
+                    const s = (status || '').toLowerCase();
+                    // Map statuses to Bootstrap text color classes
+                    let textClass = 'text-white'; // default for loading/unknown
+                    if (s === 'cancel' || s === 'canceled' || s === 'cancelled' || s === 'failed' || s === 'stopped') {
+                        textClass = 'text-danger'; // red
+                    } else if (s === 'completed' || s === 'success' || s === 'finished' || s === 'done') {
+                        textClass = 'text-success'; // green
+                    } else if (s === 'pending' || s === 'queued') {
+                        textClass = 'text-warning'; // yellow
+                    } else if (s === 'before' || s === 'in-progress' || s === 'in_progress' || s === 'running' || s === 'processing') {
+                        textClass = 'text-primary'; // blue
+                    } else if (s === 'loading') {
+                        textClass = 'text-white'; // white
+                    }
+                    // Bold for Processing, Cancel, Completed, Pending (and aliases)
+                    const shouldBold = (
+                        s === 'processing' || s === 'in-progress' || s === 'in_progress' || s === 'running' ||
+                        s === 'cancel' || s === 'canceled' || s === 'cancelled' || s === 'failed' || s === 'stopped' ||
+                        s === 'completed' || s === 'success' || s === 'finished' || s === 'done' ||
+                        s === 'pending' || s === 'queued'
+                    );
+                    const weightClass = shouldBold ? 'fw-bold' : '';
+                    cell.className = `${base} ${textClass} ${weightClass} status-${s}`.trim();
+                    cell.textContent = formatHistoryStatusText((status||'unknown').charAt(0).toUpperCase() + (status||'unknown').slice(1));
                 }
                 async function pollHistoryStatuses() {
                     try {
@@ -1249,13 +1657,65 @@ document.addEventListener('DOMContentLoaded', function() {
                                 const cell = row.querySelector('.status-cell');
                                 if (!cell) return;
                                 applyStatusClass(cell, r.aggregate_status);
+                                let displayText = '';
+                                if (Array.isArray(r.items) && r.items.length > 0) {
+                                    const rawStatuses = r.items.map(it => {
+                                        const rawObj = (it && typeof it.raw === 'object' && it.raw) ? it.raw : {};
+                                        return rawObj && rawObj.status != null ? String(rawObj.status) : (it && it.status ? String(it.status) : 'unknown');
+                                    });
+                                    if (rawStatuses.length === 1) {
+                                        displayText = rawStatuses[0];
+                                    } else {
+                                        const counts = {};
+                                        rawStatuses.forEach(s => { counts[s] = (counts[s] || 0) + 1; });
+                                        displayText = Object.entries(counts).map(([k,v]) => v > 1 ? `${k} x${v}` : k).join(', ');
+                                    }
+                                } else {
+                                    displayText = (r.aggregate_status || 'unknown');
+                                }
+                                cell.textContent = formatHistoryStatusText(displayText);
+                                if (Array.isArray(r.items)) {
+                                    r.items.forEach(it => {
+                                        const provider = it && it.provider ? String(it.provider) : '';
+                                        const orderId = it && it.order_id != null ? String(it.order_id) : '';
+                                        if (!orderId) return;
+                                        const sel = `.order-item[data-order-id="${CSS.escape(orderId)}"]${provider ? `[data-provider="${CSS.escape(provider)}"]` : ''}`;
+                                        const orderItem = row.querySelector(sel);
+                                        if (!orderItem) return;
+                                        const raw = (it && typeof it.raw === 'object' && it.raw) ? it.raw : {};
+                                        const chargeEl = orderItem.querySelector('.order-status-charge');
+                                        const startEl = orderItem.querySelector('.order-status-start');
+                                        const statusEl = orderItem.querySelector('.order-status-status');
+                                        const remainsEl = orderItem.querySelector('.order-status-remains');
+                                        const currencyEl = orderItem.querySelector('.order-status-currency');
+                                        if (chargeEl) chargeEl.textContent = (raw.charge != null ? String(raw.charge) : '-');
+                                        if (startEl) startEl.textContent = (raw.start_count != null ? String(raw.start_count) : '-');
+                                        if (statusEl) statusEl.textContent = (it && it.status ? String(it.status) : (raw.status != null ? String(raw.status) : '-'));
+                                        if (remainsEl) remainsEl.textContent = (raw.remains != null ? String(raw.remains) : '-');
+                                        if (currencyEl) currencyEl.textContent = (raw.currency != null ? String(raw.currency) : '-');
+                                    });
+                                }
                             });
                         }
                     } catch (e) { /* ignore transient */ }
                 }
-                // Start interval
-                setInterval(pollHistoryStatuses, 15000);
-                // Prime once
+                function startHistoryPolling() {
+                    try { if (historyPollIntervalId) clearInterval(historyPollIntervalId); } catch(_) {}
+                    historyPollIntervalId = setInterval(pollHistoryStatuses, 5000);
+                }
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
+                        pollHistoryStatuses();
+                        startHistoryPolling();
+                    } else {
+                        try { if (historyPollIntervalId) clearInterval(historyPollIntervalId); } catch(_) {}
+                    }
+                });
+                window.addEventListener('focus', () => {
+                    pollHistoryStatuses();
+                    startHistoryPolling();
+                });
+                startHistoryPolling();
                 pollHistoryStatuses();
             } else {
                 // Assuming it might be the index/single promo page if none of the others match specifically
@@ -1289,6 +1749,22 @@ document.addEventListener('DOMContentLoaded', function() {
         } catch (_) { /* ignore */ }
     })();
 
+    // --- Keep-Alive Ping: Prevent server spin-down ---
+    (function startKeepAlivePing() {
+        async function ping() {
+            try {
+                await fetch('/api/ping', { method: 'GET' });
+                console.log('[Keep-Alive] Ping sent');
+            } catch (e) {
+                console.warn('[Keep-Alive] Ping failed:', e.message);
+            }
+        }
+        // Ping immediately on load
+        ping();
+        // Then ping every 10 seconds
+        setInterval(ping, 10000);
+    })();
+
     // --- Promo Page Specific Initialization ---
     async function initializePromoPage(profiles) { // <-- Accept profiles data
         console.log("Running initializePromoPage with profiles:", profiles);
@@ -1303,6 +1779,10 @@ document.addEventListener('DOMContentLoaded', function() {
         const profileSelectPromo = document.getElementById('profile-select-promo');
         if (profileSelectPromo) {
             populateProfileDropdown(profileSelectPromo, profiles);
+            // Add change listener to update cost display
+            profileSelectPromo.addEventListener('change', () => updateAutoPromoCostDisplay(profiles));
+            // Initial cost display
+            updateAutoPromoCostDisplay(profiles);
         }
 
         // 2) Populate platform dropdown from CSV with fallback (ensures Spotify shows)
@@ -1373,6 +1853,54 @@ document.addEventListener('DOMContentLoaded', function() {
 
         promoReady = !!(runProfileBtn && profileSelectPromo && promoLinkInput);
         updateGlobalReadyStatus();
+    }
+
+    // --- Auto Promo Cost Display ---
+    function updateAutoPromoCostDisplay(profiles) {
+        const profileSelect = document.getElementById('profile-select-promo');
+        const costDisplay = document.getElementById('auto-cost-display');
+        
+        if (!profileSelect || !costDisplay) return;
+        
+        const selectedProfileName = profileSelect.value;
+        if (!selectedProfileName || !profiles || !profiles[selectedProfileName]) {
+            costDisplay.textContent = '';
+            return;
+        }
+        
+        const profile = profiles[selectedProfileName];
+        const engagements = profile.engagements || [];
+        
+        let totalCost = 0;
+        let costBreakdown = [];
+        
+        for (const eng of engagements) {
+            const rate = parseFloat(eng.rate_per_1k) || 0;
+            const loops = parseInt(eng.loops) || 1;
+            
+            // Calculate quantity per loop
+            let qtyPerLoop = 0;
+            if (eng.use_random_quantity) {
+                const minQty = parseInt(eng.min_quantity) || 0;
+                const maxQty = parseInt(eng.max_quantity) || 0;
+                qtyPerLoop = (minQty + maxQty) / 2; // Average for estimate
+            } else {
+                qtyPerLoop = parseInt(eng.fixed_quantity) || 0;
+            }
+            
+            const totalQty = qtyPerLoop * loops;
+            const engCost = (rate * totalQty) / 1000;
+            totalCost += engCost;
+            
+            const engType = eng.type || 'Unknown';
+            costBreakdown.push(`${engType}: ${formatCurrency(engCost)}`);
+        }
+        
+        if (totalCost > 0) {
+            costDisplay.innerHTML = `<strong>Estimated Total Cost:</strong> ${formatCurrency(totalCost)}<br>${costBreakdown.join(' | ')}`;
+        } else {
+            costDisplay.textContent = '';
+        }
     }
 
     // --- Single Promo Page Specific Initialization (ensure CSV-backed platforms incl. Spotify) ---
@@ -1893,13 +2421,16 @@ document.addEventListener('DOMContentLoaded', function() {
                  <td>${lastChecked}</td>
                  <td class="text-break">${lastPushed}</td>
                  <td>
-                     <button class="btn btn-sm ${toggleButtonClass} toggle-monitor-btn" data-target-id="${target.id}" data-target-name="${target.target_username}" data-current-state="${target.is_running}">
-                         ${toggleButtonText}
-                     </button>
-                     <button class="btn btn-sm btn-danger remove-monitor-btn" data-target-id="${target.id}" data-target-name="${target.target_username}">
-                         Remove
-                     </button>
-                 </td>
+                    <button class="btn btn-sm ${toggleButtonClass} toggle-monitor-btn" data-target-id="${target.id}" data-target-name="${target.target_username}" data-current-state="${target.is_running}">
+                        ${toggleButtonText}
+                    </button>
+                    <button class="btn btn-sm btn-secondary edit-monitor-btn ms-1" data-target-id="${target.id}" data-target-name="${target.target_username}" data-profile-name="${target.promotion_profile_name||''}">
+                        Edit
+                    </button>
+                    <button class="btn btn-sm btn-danger remove-monitor-btn ms-1" data-target-id="${target.id}" data-target-name="${target.target_username}">
+                        Remove
+                    </button>
+                </td>
              `;
              monitoringTargetsList.appendChild(row);
          });
@@ -1916,6 +2447,9 @@ document.addEventListener('DOMContentLoaded', function() {
          document.querySelectorAll('.remove-monitor-btn').forEach(button => {
             button.replaceWith(button.cloneNode(true)); // Clone to remove listeners
         });
+         document.querySelectorAll('.edit-monitor-btn').forEach(button => {
+            button.replaceWith(button.cloneNode(true));
+         });
 
         // Add listeners to the new buttons
         document.querySelectorAll('.toggle-monitor-btn').forEach(button => {
@@ -1923,6 +2457,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         document.querySelectorAll('.remove-monitor-btn').forEach(button => {
             button.addEventListener('click', handleRemoveMonitoring);
+        });
+        document.querySelectorAll('.edit-monitor-btn').forEach(button => {
+            button.addEventListener('click', handleEditMonitoring);
         });
     }
 

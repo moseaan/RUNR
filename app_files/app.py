@@ -276,15 +276,39 @@ def profiles_page():
 # --- Route for the History Page ---
 @app.route('/history')
 def history_page():
-    """Serves the History page."""
-    history_data = history_manager.load_history() 
-    return render_template('history.html', history=history_data)
+    """Serves the History page with pagination."""
+    page = request.args.get('page', 1, type=int)
+    per_page = 10
+    
+    all_history = history_manager.load_history()
+    total_items = len(all_history)
+    total_pages = (total_items + per_page - 1) // per_page  # Ceiling division
+    
+    # Ensure page is within valid range
+    page = max(1, min(page, total_pages if total_pages > 0 else 1))
+    
+    # Slice history for current page
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    history_data = all_history[start_idx:end_idx]
+    
+    return render_template('history.html', 
+                         history=history_data,
+                         current_page=page,
+                         total_pages=total_pages,
+                         total_items=total_items)
 
 # --- NEW Route for the Monitoring Page ---
 @app.route('/monitoring')
 def monitoring_page():
     """Serves the Monitoring management page."""
     return render_template('monitoring.html')
+
+# --- Route for the Services Page ---
+@app.route('/services')
+def services_page():
+    """Serves the Services configuration page."""
+    return render_template('services.html')
 
 # --- Route for the Debug Page ---
 @app.route('/debug')
@@ -297,6 +321,12 @@ def debug_page():
 def balances_page():
     """Serves the Balances page."""
     return render_template('balances.html')
+
+# --- API Route: Ping/Health Check (Keep server alive) ---
+@app.route('/api/ping', methods=['GET'])
+def ping():
+    """Lightweight endpoint to keep server alive and prevent spin-down."""
+    return jsonify({'success': True, 'status': 'alive', 'timestamp': datetime.datetime.now().isoformat()})
 
 # --- API Route to get profiles --- (Used by Profile Editor and Run page)
 @app.route('/api/profiles', methods=['GET'])
@@ -386,6 +416,62 @@ def get_services_by_category():
     try:
         services = services_catalog.list_services(platform, engagement)
         return jsonify({"success": True, "services": services})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# --- Service Overrides Endpoints ---
+@app.route('/api/services/overrides', methods=['GET'])
+def get_service_overrides():
+    """Get all configured service overrides."""
+    try:
+        overrides = services_catalog._load_overrides_cache()
+        return jsonify({"success": True, "overrides": overrides})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/services/overrides', methods=['POST'])
+def set_service_override():
+    """Set a service override for a specific platform/engagement."""
+    data = request.json or {}
+    platform = (data.get('platform') or '').strip()
+    engagement = (data.get('engagement') or '').strip()
+    service_id = data.get('service_id')
+    provider = (data.get('provider') or '').strip()
+    
+    if not platform or not engagement or not service_id or not provider:
+        return jsonify({"success": False, "error": "Missing required fields: platform, engagement, service_id, provider"}), 400
+    
+    try:
+        service_id_int = int(service_id)
+    except (ValueError, TypeError):
+        return jsonify({"success": False, "error": "service_id must be a valid integer"}), 400
+    
+    try:
+        override_data = {
+            'service_id': service_id_int,
+            'provider': provider,
+            'provider_label': data.get('provider_label'),
+            'name': data.get('name'),
+            'min_qty': data.get('min_qty'),
+            'max_qty': data.get('max_qty'),
+            'rate_per_1k': data.get('rate_per_1k'),
+            'tier': data.get('tier'),
+            'notes': data.get('notes')
+        }
+        result = services_catalog.set_override(platform, engagement, override_data)
+        return jsonify({"success": True, "override": result})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+@app.route('/api/services/overrides/<platform>/<engagement>', methods=['DELETE'])
+def delete_service_override(platform, engagement):
+    """Delete a service override for a specific platform/engagement."""
+    try:
+        success = services_catalog.clear_override_entry(platform, engagement)
+        if success:
+            return jsonify({"success": True, "message": "Override deleted"})
+        else:
+            return jsonify({"success": False, "error": "Override not found"}), 404
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -871,6 +957,8 @@ def get_history_live_status():
                         agg = 'pending'
                 elif all(s == 'completed' for s in statuses):
                     agg = 'completed'
+            elif entry.get('status'):
+                agg = normalize_status(str(entry.get('status')))
 
             results.append({'job_id': job_id, 'aggregate_status': agg, 'items': items})
 
