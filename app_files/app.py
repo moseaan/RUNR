@@ -779,7 +779,7 @@ def estimate_auto_cost():
     })
 
 # --- API Route to check job status --- (Used by Run page for manual/profile promos)
-@app.route('/api/job_status/<job_id>', methods=['GET'])
+@app.route('/api/job_status/<path:job_id>', methods=['GET'])
 def get_job_status(job_id):
     """Returns the status of a background job (manual/profile promos ONLY)."""
     status_info = job_statuses.get(job_id)
@@ -878,36 +878,40 @@ def get_history_live_status():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
-# --- NEW Stop Route --- 
+# --- API Route: List Active Jobs (pending/running/stopping) ---
+@app.route('/api/jobs/active', methods=['GET'])
+def list_active_jobs():
+    try:
+        active = []
+        terminal = {'success', 'failed', 'stopped'}
+        for jid, info in job_statuses.items():
+            status = (info.get('status') or '').lower()
+            if status not in terminal:
+                active.append({
+                    'job_id': jid,
+                    'status': status,
+                    'message': info.get('message')
+                })
+        return jsonify({'success': True, 'jobs': active})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# --- API Route: Request stop of a job ---
 @app.route('/api/stop_promo', methods=['POST'])
-def stop_profile_promo():
-    data = request.get_json()
+def stop_promo_route():
+    data = request.json or {}
     job_id = data.get('job_id')
-
     if not job_id:
-        return jsonify({"status": "error", "message": "Missing job_id"}), 400
-
-    job = scheduler.get_job(job_id)
-    if not job:
-        # If the job is not in the scheduler, it may already be running or finished.
-        # Always add to requested_stops so the running job can see it.
-        requested_stops.add(job_id)
-        update_job_status(job_id, 'stopping', 'Stop requested by user...')
-        app.logger.info(f"Stop requested for job ID: {job_id} (not in scheduler, may be running)")
-        return jsonify({"status": "success", "message": f"Stop request registered for job {job_id} (not in scheduler, may be running)."})
-        
-    # Check if already requested to stop
-    if job_id in requested_stops:
-        return jsonify({"status": "success", "message": f"Stop already requested for job {job_id}."})
-
-    # Add job_id to the set of requested stops
+        return jsonify({'success': False, 'error': 'Missing job_id'}), 400
+    # Mark stop request
     requested_stops.add(job_id)
-    update_job_status(job_id, 'stopping', 'Stop requested by user...') # Update status
-    app.logger.info(f"Stop requested for job ID: {job_id}")
+    # Update visible status if tracked
+    if job_id in job_statuses:
+        job_statuses[job_id]['status'] = 'stopping'
+        job_statuses[job_id]['message'] = 'Stop requested.'
+    return jsonify({'success': True})
 
-    # The running job needs to check the `requested_stops` set itself.
-    # We don't directly kill the thread here.
-    return jsonify({"status": "success", "message": f"Stop request registered for job {job_id}."})
+ 
 
 # --- Debug API Endpoints (Scaffold) ---
 def _dbg_response(ok: bool, log: str):

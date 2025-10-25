@@ -55,6 +55,28 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             showStatus('Not Ready', 'danger', statusAreaId, statusMessageId);
         }
+
+    }
+
+    // --- Persist active jobs across refresh using localStorage ---
+    const ACTIVE_JOBS_KEY = 'mim_active_jobs';
+    function getStoredActiveJobs() {
+        try {
+            const raw = localStorage.getItem(ACTIVE_JOBS_KEY);
+            const arr = raw ? JSON.parse(raw) : [];
+            return Array.isArray(arr) ? arr : [];
+        } catch (_) { return []; }
+    }
+    function setStoredActiveJobs(list) {
+        try { localStorage.setItem(ACTIVE_JOBS_KEY, JSON.stringify(Array.from(new Set(list)))); } catch(_) {}
+    }
+    function addActiveJobId(jobId) {
+        const list = getStoredActiveJobs();
+        if (!list.includes(jobId)) { list.push(jobId); setStoredActiveJobs(list); }
+    }
+    function removeActiveJobId(jobId) {
+        const list = getStoredActiveJobs().filter(id => id !== jobId);
+        setStoredActiveJobs(list);
     }
 
     // Generic API Call Helper
@@ -74,7 +96,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 options.body = JSON.stringify(body);
             }
             const response = await fetch(endpoint, options);
-            const data = await response.json(); // Assume JSON response
+            const contentType = (response.headers && response.headers.get && response.headers.get('content-type')) ? response.headers.get('content-type') : '';
+            let data = null;
+            if (contentType && contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                const text = await response.text();
+                const snippet = (text || '').slice(0, 200);
+                const ct = contentType || 'unknown';
+                const statusInfo = `${response.status} ${response.statusText}`.trim();
+                console.error(`Non-JSON response for ${method} ${endpoint} [${statusInfo}; content-type: ${ct}]:`, snippet);
+                showStatus(`API Error: Non-JSON response (${statusInfo}).`, 'danger', 'main-status-area', 'main-status-message');
+                throw new Error(`Non-JSON response (${statusInfo}; content-type: ${ct}): ${snippet}`);
+            }
 
             if (!response.ok) {
                 const errorMsg = data.error || data.message || `HTTP error! status: ${response.status}`;
@@ -289,12 +323,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function pollJob(jobId, onUpdate, onDone) {
         try {
-            const data = await apiCall(`/api/job_status/${jobId}`);
+            const data = await apiCall(`/api/job_status/${encodeURIComponent(jobId)}`);
             if (data && data.success) {
                 const status = (data.status || '').toLowerCase();
                 onUpdate(status, data.message);
                 if (['success','failed','stopped'].includes(status)) {
                     onDone(status, data.message);
+                    // Remove from persisted active list on terminal state
+                    try { removeActiveJobId(jobId); } catch(_) {}
                     return false; // stop
                 }
                 return true; // keep polling
@@ -342,6 +378,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 () => {
                     clearInterval(intervalId);
                     delete jobPollers[jobId];
+                    try { removeActiveJobId(jobId); } catch(_) {}
                     if (stopBtn) {
                         // On completion, remove the Stop button entirely
                         try { stopBtn.remove(); } catch (e) { /* ignore */ }
@@ -478,6 +515,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Create per-job row and start polling that job only
                     const svcName = (selectedService.name || ((selectedService.provider_label || selectedService.provider) + ' #' + selectedService.service_id));
                     createJobRow('single-promo-jobs', jobId, `Single Promo: ${engagement} — ${svcName}`, link);
+                    try { addActiveJobId(jobId); } catch(_) {}
                     startPerJobPolling(jobId);
                 } else {
                     showStatus(data.error || 'Failed to schedule single promo.', 'danger', statusAreaId, statusMessageId);
@@ -493,7 +531,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("startProfilePromotion called");
         const statusAreaId = 'promo-status-area';
         const statusMessageId = 'promo-status-message';
-        const stopBtn = document.getElementById('stop-profile-btn');
 
         // Validation already done in the event listener
         showStatus(`Scheduling profile promo: '${profileName}' (${platform}) for ${link}...`, 'info', statusAreaId, statusMessageId);
@@ -501,10 +538,14 @@ document.addEventListener('DOMContentLoaded', function() {
         apiCall('/api/start_promo', 'POST', { profile_name: profileName, link: link, platform: platform })
              .then(data => {
                 if (data.success && data.job_id) {
-                    currentProfileJobId = data.job_id;
-                    if (stopBtn) stopBtn.disabled = false; // Enable stop button only when job starts
-                    showStatus(data.message || `Profile promo '${profileName}' scheduled. Job ID: ${currentProfileJobId}`, 'info', statusAreaId, statusMessageId);
-                    startStatusPolling(currentProfileJobId);
+                    const jobId = data.job_id;
+                    currentProfileJobId = jobId; // maintained for legacy references
+                    showStatus(data.message || `Profile promo '${profileName}' scheduled. Job ID: ${jobId}`, 'info', statusAreaId, statusMessageId);
+                    // Create per-job row and start per-job polling (like single promo)
+                    const label = `Auto Promo: ${profileName}${platform ? ' — ' + platform : ''}`;
+                    createJobRow('auto-promo-jobs', jobId, label, link);
+                    try { addActiveJobId(jobId); } catch(_) {}
+                    startPerJobPolling(jobId);
                 } else {
                     showStatus(data.error || 'Failed to schedule profile promo.', 'danger', statusAreaId, statusMessageId);
                 }
@@ -521,8 +562,7 @@ document.addEventListener('DOMContentLoaded', function() {
         showStatus(`Job ${jobId} running... Polling status.`, 'info', 'promo-status-area', 'promo-status-message'); // Use specific area
         
         // Ensure stop button is enabled during polling
-        const stopBtn = document.getElementById('stop-profile-btn');
-        if(stopBtn) stopBtn.disabled = false;
+        // Deprecated: global stop button per requirements. Per-job stop buttons are created in rows.
         
         statusCheckInterval = setInterval(async () => {
             // Make checkJobStatus async if it wasn't already
@@ -550,7 +590,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         try {
-            const data = await apiCall(`/api/job_status/${jobId}`);
+            const data = await apiCall(`/api/job_status/${encodeURIComponent(jobId)}`);
             if (data.success) {
                 const status = data.status.toLowerCase();
                 const message = data.message || status;
@@ -593,11 +633,9 @@ document.addEventListener('DOMContentLoaded', function() {
         console.log("Enabling action buttons...");
         const singlePromoBtn = document.getElementById('start-single-promo-btn');
         const profilePromoBtn = document.getElementById('start-profile-promo-btn');
-        const stopBtn = document.getElementById('stop-profile-btn'); // Stop button should be handled separately
         if(singlePromoBtn) singlePromoBtn.disabled = false;
         if(profilePromoBtn) profilePromoBtn.disabled = false;
-        // Stop button is enabled ONLY when a profile job starts and disabled when it ends (in handleFinalJobStatus)
-        // if(stopBtn) stopBtn.disabled = true; 
+        // Per-job stop buttons are managed within each job row
     }
 
     // --- Initialization Functions (Define BEFORE first use) ---
@@ -1240,6 +1278,17 @@ document.addEventListener('DOMContentLoaded', function() {
          }
     })();
 
+    // After initializations, rehydrate any active jobs so they persist across refresh
+    (async () => {
+        try {
+            await restoreActiveJobs();
+        } catch (_) { /* ignore */ }
+        // Also periodically re-run to restore rows if the server/local state updates or if a row was removed
+        try {
+            setInterval(() => { restoreActiveJobs().catch(()=>{}); }, 10000);
+        } catch (_) { /* ignore */ }
+    })();
+
     // --- Promo Page Specific Initialization ---
     async function initializePromoPage(profiles) { // <-- Accept profiles data
         console.log("Running initializePromoPage with profiles:", profiles);
@@ -1318,7 +1367,8 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         if (stopProfileBtn) {
-            stopProfileBtn.addEventListener('click', stopProfilePromotion);
+            // Hide global stop button in favor of per-job stop buttons
+            try { stopProfileBtn.style.display = 'none'; } catch(_) {}
         }
 
         promoReady = !!(runProfileBtn && profileSelectPromo && promoLinkInput);
