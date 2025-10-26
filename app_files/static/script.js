@@ -450,49 +450,74 @@ document.addEventListener('DOMContentLoaded', function() {
             const ss = parseInt(mmss[2], 10);
             if (!isNaN(mm) && !isNaN(ss)) return mm * 60 + ss;
         }
-        // Try "in 123s" or "123 seconds"
-        let secs = m.match(/\b(\d+)\s*(s|sec|secs|second|seconds)\b/);
+        // Try numeric seconds (supports decimals): "123.4s", "123 seconds"
+        let secs = m.match(/\b(\d+(?:\.\d+)?)\s*(s|sec|secs|second|seconds)\b/);
         if (secs) {
-            const s = parseInt(secs[1], 10);
-            if (!isNaN(s)) return s;
+            const s = parseFloat(secs[1]);
+            if (!isNaN(s)) return Math.ceil(s);
         }
-        // Try phrases like "delay before next loop" with number
-        let numb = m.match(/\b(\d{1,5})\b/);
+        // Try phrases like "delay before next loop" with number (allow decimals)
+        let numb = m.match(/\b(\d{1,5}(?:\.\d+)?)\b/);
         if (numb && /delay|next\s*loop|wait|cooldown/.test(m)) {
-            const s = parseInt(numb[1], 10);
-            if (!isNaN(s)) return s;
+            const s = parseFloat(numb[1]);
+            if (!isNaN(s)) return Math.ceil(s);
         }
         return null;
     }
 
     function startJobCountdown(jobId, seconds, stepEl, baseLabel) {
-        if (!jobId || !stepEl || !seconds || seconds <= 0) return;
-        // Reuse existing if shorter/new
-        const endAt = Date.now() + seconds * 1000;
-        // Clear existing interval first
-        clearJobCountdown(jobId);
-        jobDelayCountdowns[jobId] = {
-            endAt,
-            intervalId: setInterval(() => {
-                const remainingMs = endAt - Date.now();
-                if (remainingMs <= 0) {
-                    clearJobCountdown(jobId);
-                    stepEl.textContent = baseLabel ? `${baseLabel}: resuming...` : 'Status: resuming...';
-                    return;
-                }
-                const rem = Math.ceil(remainingMs / 1000);
-                const mins = Math.floor(rem / 60);
-                const secs = rem % 60;
-                const pretty = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
-                stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty}` : `Status: next loop in ${pretty}`;
-            }, 1000)
-        };
-        // Update immediately so user sees it tick without waiting 1s
-        const mins0 = Math.floor(seconds / 60);
-        const secs0 = seconds % 60;
-        const pretty0 = mins0 > 0 ? `${mins0}m ${secs0}s` : `${secs0}s`;
-        stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty0}` : `Status: next loop in ${pretty0}`;
-    }
+      if (!jobId || !stepEl || !seconds || seconds <= 0) return;
+      const now = Date.now();
+      const proposedEndAt = now + Math.ceil(seconds) * 1000;
+      const existing = jobDelayCountdowns[jobId];
+      // Reuse existing if shorter/new
+      if (existing && existing.endAt && existing.endAt > now) {
+          if (proposedEndAt + 500 < existing.endAt) { // allow small tolerance
+              existing.endAt = proposedEndAt;
+          }
+          // Update display immediately based on existing endAt
+          const remainingMs0 = Math.max(0, existing.endAt - now);
+          const rem0 = Math.ceil(remainingMs0 / 1000);
+          const pretty0 = `${rem0}s`;
+          stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty0}` : `Status: next loop in ${pretty0}`;
+          return;
+      }
+      if (existing && existing.endAt && existing.endAt <= now) {
+          const finishedAgo = (existing.finishedAt ? (now - existing.finishedAt) : (now - existing.endAt));
+          const sameDeclared = (existing.declaredSeconds === Math.ceil(seconds));
+          if (finishedAgo < 3500 && sameDeclared) {
+              // Keep showing resuming briefly; do not restart yet
+              stepEl.textContent = baseLabel ? `${baseLabel}: resuming...` : 'Status: resuming...';
+              return;
+          }
+      }
+
+      const endAt = proposedEndAt;
+      clearJobCountdown(jobId);
+      jobDelayCountdowns[jobId] = {
+          endAt,
+          declaredSeconds: Math.ceil(seconds),
+          finishedAt: null,
+          intervalId: setInterval(() => {
+              const remainingMs = endAt - Date.now();
+              if (remainingMs <= 0) {
+                  try { clearInterval(jobDelayCountdowns[jobId]?.intervalId); } catch(_) {}
+                  if (jobDelayCountdowns[jobId]) {
+                      jobDelayCountdowns[jobId].intervalId = null;
+                      jobDelayCountdowns[jobId].finishedAt = Date.now();
+                  }
+                  stepEl.textContent = baseLabel ? `${baseLabel}: resuming...` : 'Status: resuming...';
+                  return;
+              }
+              const rem = Math.ceil(remainingMs / 1000);
+              const pretty = `${rem}s`;
+              stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty}` : `Status: next loop in ${pretty}`;
+          }, 1000)
+      };
+      // Update immediately so user sees it tick without waiting 1s
+      const pretty0 = `${Math.ceil(seconds)}s`;
+      stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty0}` : `Status: next loop in ${pretty0}`;
+  }
 
     function createJobRow(containerId, jobId, label, link) {
         const container = document.getElementById(containerId);

@@ -70,8 +70,8 @@
             {
                 "type": "Followers",
                 "platform": "Instagram",
-                "service_id": 25110,
-                "rate_per_1k": 1.19,
+                "service_id": 27327,
+                "rate_per_1k": 5.376,
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 10,
@@ -92,8 +92,8 @@
             {
                 "type": "Followers",
                 "platform": "Instagram",
-                "service_id": 25110,
-                "rate_per_1k": 1.19,
+                "service_id": 27327,
+                "rate_per_1k": 5.376,
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 10,
@@ -151,6 +151,72 @@
             "random_delay": true,
             "min_delay": 60,
             "max_delay": 120
+        }
+    },
+    "Instagram Followers (+100/10 Minutes)": {
+        "engagements": [
+            {
+                "type": "Followers",
+                "platform": "Instagram",
+                "service_id": 27327,
+                "rate_per_1k": 5.376,
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 10,
+                "max_quantity": 10,
+                "loops": 10
+            }
+        ],
+        "loop_settings": {
+            "loops": 10,
+            "delay": 0,
+            "random_delay": true,
+            "min_delay": 45,
+            "max_delay": 90
+        }
+    },
+    "Instagram Followers (+200/3 Days)": {
+        "engagements": [
+            {
+                "type": "Followers",
+                "platform": "Instagram",
+                "service_id": 27327,
+                "rate_per_1k": 5.376,
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 10,
+                "max_quantity": 10,
+                "loops": 20
+            }
+        ],
+        "loop_settings": {
+            "loops": 20,
+            "delay": 0,
+            "random_delay": true,
+            "min_delay": 10800,
+            "max_delay": 16500
+        }
+    },
+    "Instagram Followers (+500/1 Day)": {
+        "engagements": [
+            {
+                "type": "Followers",
+                "platform": "Instagram",
+                "service_id": 27327,
+                "rate_per_1k": 5.376,
+                "use_random_quantity": true,
+                "fixed_quantity": null,
+                "min_quantity": 10,
+                "max_quantity": 10,
+                "loops": 50
+            }
+        ],
+        "loop_settings": {
+            "loops": 50,
+            "delay": 0,
+            "random_delay": true,
+            "min_delay": 1320,
+            "max_delay": 2208
         }
     }
 }
