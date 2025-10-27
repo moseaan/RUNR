@@ -1637,6 +1637,39 @@ document.addEventListener('DOMContentLoaded', function() {
                  //     console.error("Could not find profile select dropdown on Profile page.");
                  // }
                  // setTimeout(() => { showStatus("Profile Page Ready", "success", "profile-page-status-area", "profile-page-status-message", 3000); }, 10); // <<< REMOVED THIS LINE
+                 
+                 // Setup import handler
+                 const importProfilesBtn = document.getElementById('import-profiles-btn');
+                 const importProfilesFile = document.getElementById('import-profiles-file');
+                 if (importProfilesBtn && importProfilesFile) {
+                     importProfilesBtn.addEventListener('click', () => {
+                         importProfilesFile.click();
+                     });
+                     importProfilesFile.addEventListener('change', async (e) => {
+                         const file = e.target.files[0];
+                         if (!file) return;
+                         if (!file.name.endsWith('.json')) {
+                             alert('Please select a JSON file');
+                             return;
+                         }
+                         const formData = new FormData();
+                         formData.append('file', file);
+                         try {
+                             showStatus('Importing profiles...', 'info', 'profile-page-status-area', 'profile-page-status-message');
+                             const res = await fetch('/api/import/profiles', { method: 'POST', body: formData });
+                             const data = await res.json();
+                             if (data.success) {
+                                 showStatus(data.message || 'Import successful! Reloading...', 'success', 'profile-page-status-area', 'profile-page-status-message', 2000);
+                                 setTimeout(() => { location.reload(); }, 2000);
+                             } else {
+                                 showStatus('Import failed: ' + (data.error || 'Unknown error'), 'danger', 'profile-page-status-area', 'profile-page-status-message');
+                             }
+                         } catch (err) {
+                             showStatus('Error importing: ' + err.message, 'danger', 'profile-page-status-area', 'profile-page-status-message');
+                         }
+                         importProfilesFile.value = '';
+                     });
+                 }
             } else if (isOnHistoryPage) {
                 console.log("Running History Page specific init...");
                 // Live status polling for History

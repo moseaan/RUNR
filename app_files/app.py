@@ -445,6 +445,67 @@ def export_profiles():
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@app.route('/api/import/services-configs', methods=['POST'])
+def import_services_configs():
+    """Import services catalog JSON file to overwrite current config."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        # Read and validate JSON
+        try:
+            content = file.read().decode('utf-8')
+            data = json.loads(content)
+            if 'services' not in data or not isinstance(data['services'], list):
+                return jsonify({'success': False, 'error': 'Invalid services catalog format. Must contain "services" array.'}), 400
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            return jsonify({'success': False, 'error': f'Invalid JSON file: {str(e)}'}), 400
+        
+        # Write to services_catalog.json
+        services_json_path = services_catalog._services_json_path()
+        os.makedirs(os.path.dirname(services_json_path), exist_ok=True)
+        with open(services_json_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+        
+        # Clear cache to reload
+        services_catalog._SERVICES_JSON_CACHE = None
+        
+        return jsonify({'success': True, 'message': f'Imported {len(data["services"])} services successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/import/profiles', methods=['POST'])
+def import_profiles():
+    """Import profiles JSON file to overwrite current profiles."""
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': False, 'error': 'No file provided'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'success': False, 'error': 'No file selected'}), 400
+        
+        # Read and validate JSON
+        try:
+            content = file.read().decode('utf-8')
+            data = json.loads(content)
+            if not isinstance(data, dict):
+                return jsonify({'success': False, 'error': 'Invalid profiles format. Must be a JSON object.'}), 400
+        except (json.JSONDecodeError, UnicodeDecodeError) as e:
+            return jsonify({'success': False, 'error': f'Invalid JSON file: {str(e)}'}), 400
+        
+        # Write to profiles.json
+        profiles_path = profile_manager.DEFAULT_PROFILE_FILE
+        os.makedirs(os.path.dirname(profiles_path), exist_ok=True)
+        with open(profiles_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, indent=2)
+        
+        return jsonify({'success': True, 'message': f'Imported {len(data)} profiles successfully'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/services/engagements', methods=['GET'])
 def get_services_engagements():
     platform = request.args.get('platform', '').strip()
