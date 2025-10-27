@@ -1672,76 +1672,88 @@ document.addEventListener('DOMContentLoaded', function() {
                     cell.className = `${base} ${textClass} ${weightClass} status-${s}`.trim();
                     cell.textContent = formatHistoryStatusText((status||'unknown').charAt(0).toUpperCase() + (status||'unknown').slice(1));
                 }
-                async function pollHistoryStatuses() {
+                function getQueryParam(name) {
+                    const params = new URLSearchParams(window.location.search);
+                    return params.get(name);
+                }
+                function getVisibleHistoryRows() {
+                    return Array.from(document.querySelectorAll('#history-list tbody tr[data-job-id]'));
+                }
+                async function fetchAndRenderForRow(row) {
+                    const jobId = row && row.getAttribute('data-job-id');
+                    if (!jobId) return;
                     try {
-                        const res = await apiCall('/api/history/live_status?limit=30');
-                        if (res && res.success && Array.isArray(res.results)) {
-                            res.results.forEach(r => {
-                                const row = document.querySelector(`tr[data-job-id="${r.job_id}"]`);
-                                if (!row) return;
-                                const cell = row.querySelector('.status-cell');
-                                if (!cell) return;
-                                applyStatusClass(cell, r.aggregate_status);
-                                let displayText = '';
-                                if (Array.isArray(r.items) && r.items.length > 0) {
-                                    const rawStatuses = r.items.map(it => {
-                                        const rawObj = (it && typeof it.raw === 'object' && it.raw) ? it.raw : {};
-                                        return rawObj && rawObj.status != null ? String(rawObj.status) : (it && it.status ? String(it.status) : 'unknown');
-                                    });
-                                    if (rawStatuses.length === 1) {
-                                        displayText = rawStatuses[0];
-                                    } else {
-                                        const counts = {};
-                                        rawStatuses.forEach(s => { counts[s] = (counts[s] || 0) + 1; });
-                                        displayText = Object.entries(counts).map(([k,v]) => v > 1 ? `${k} x${v}` : k).join(', ');
-                                    }
-                                } else {
-                                    displayText = (r.aggregate_status || 'unknown');
-                                }
-                                cell.textContent = formatHistoryStatusText(displayText);
-                                if (Array.isArray(r.items)) {
-                                    r.items.forEach(it => {
-                                        const provider = it && it.provider ? String(it.provider) : '';
-                                        const orderId = it && it.order_id != null ? String(it.order_id) : '';
-                                        if (!orderId) return;
-                                        const sel = `.order-item[data-order-id="${CSS.escape(orderId)}"]${provider ? `[data-provider="${CSS.escape(provider)}"]` : ''}`;
-                                        const orderItem = row.querySelector(sel);
-                                        if (!orderItem) return;
-                                        const raw = (it && typeof it.raw === 'object' && it.raw) ? it.raw : {};
-                                        const chargeEl = orderItem.querySelector('.order-status-charge');
-                                        const startEl = orderItem.querySelector('.order-status-start');
-                                        const statusEl = orderItem.querySelector('.order-status-status');
-                                        const remainsEl = orderItem.querySelector('.order-status-remains');
-                                        const currencyEl = orderItem.querySelector('.order-status-currency');
-                                        if (chargeEl) chargeEl.textContent = (raw.charge != null ? String(raw.charge) : '-');
-                                        if (startEl) startEl.textContent = (raw.start_count != null ? String(raw.start_count) : '-');
-                                        if (statusEl) statusEl.textContent = (it && it.status ? String(it.status) : (raw.status != null ? String(raw.status) : '-'));
-                                        if (remainsEl) remainsEl.textContent = (raw.remains != null ? String(raw.remains) : '-');
-                                        if (currencyEl) currencyEl.textContent = (raw.currency != null ? String(raw.currency) : '-');
-                                    });
-                                }
+                        const res = await apiCall(`/api/history/live_status?job_id=${encodeURIComponent(jobId)}`);
+                        if (!(res && res.success && Array.isArray(res.results) && res.results.length > 0)) return;
+                        const r = res.results[0];
+                        const cell = row.querySelector('.status-cell');
+                        if (!cell) return;
+                        applyStatusClass(cell, r.aggregate_status);
+                        let displayText = '';
+                        if (Array.isArray(r.items) && r.items.length > 0) {
+                            const rawStatuses = r.items.map(it => {
+                                const rawObj = (it && typeof it.raw === 'object' && it.raw) ? it.raw : {};
+                                return rawObj && rawObj.status != null ? String(rawObj.status) : (it && it.status ? String(it.status) : 'unknown');
+                            });
+                            if (rawStatuses.length === 1) {
+                                displayText = rawStatuses[0];
+                            } else {
+                                const counts = {};
+                                rawStatuses.forEach(s => { counts[s] = (counts[s] || 0) + 1; });
+                                displayText = Object.entries(counts).map(([k,v]) => v > 1 ? `${k} x${v}` : k).join(', ');
+                            }
+                        } else {
+                            displayText = (r.aggregate_status || 'unknown');
+                        }
+                        const cap = (displayText || 'unknown');
+                        cell.textContent = formatHistoryStatusText(cap.charAt(0).toUpperCase() + cap.slice(1));
+                        if (Array.isArray(r.items)) {
+                            r.items.forEach(it => {
+                                const provider = it && it.provider ? String(it.provider) : '';
+                                const orderId = it && it.order_id != null ? String(it.order_id) : '';
+                                if (!orderId) return;
+                                const sel = `.order-item[data-order-id="${CSS.escape(orderId)}"]${provider ? `[data-provider="${CSS.escape(provider)}"]` : ''}`;
+                                const orderItem = row.querySelector(sel);
+                                if (!orderItem) return;
+                                const raw = (it && typeof it.raw === 'object' && it.raw) ? it.raw : {};
+                                const chargeEl = orderItem.querySelector('.order-status-charge');
+                                const startEl = orderItem.querySelector('.order-status-start');
+                                const statusEl = orderItem.querySelector('.order-status-status');
+                                const remainsEl = orderItem.querySelector('.order-status-remains');
+                                const currencyEl = orderItem.querySelector('.order-status-currency');
+                                if (chargeEl) chargeEl.textContent = (raw.charge != null ? String(raw.charge) : '-');
+                                if (startEl) startEl.textContent = (raw.start_count != null ? String(raw.start_count) : '-');
+                                if (statusEl) statusEl.textContent = (it && it.status ? String(it.status) : (raw.status != null ? String(raw.status) : '-'));
+                                if (remainsEl) remainsEl.textContent = (raw.remains != null ? String(raw.remains) : '-');
+                                if (currencyEl) currencyEl.textContent = (raw.currency != null ? String(raw.currency) : '-');
                             });
                         }
-                    } catch (e) { /* ignore transient */ }
+                    } catch (_) { /* ignore */ }
                 }
-                function startHistoryPolling() {
-                    try { if (historyPollIntervalId) clearInterval(historyPollIntervalId); } catch(_) {}
-                    historyPollIntervalId = setInterval(pollHistoryStatuses, 5000);
-                }
-                document.addEventListener('visibilitychange', () => {
-                    if (document.visibilityState === 'visible') {
-                        pollHistoryStatuses();
-                        startHistoryPolling();
-                    } else {
-                        try { if (historyPollIntervalId) clearInterval(historyPollIntervalId); } catch(_) {}
+                async function progressiveLoadHistoryStatuses() {
+                    const rows = getVisibleHistoryRows();
+                    for (const row of rows) {
+                        await fetchAndRenderForRow(row);
                     }
-                });
-                window.addEventListener('focus', () => {
-                    pollHistoryStatuses();
-                    startHistoryPolling();
-                });
-                startHistoryPolling();
-                pollHistoryStatuses();
+                }
+                const pageParam = getQueryParam('page');
+                const isFirstPage = !pageParam || String(pageParam) === '1';
+                if (isFirstPage) {
+                    // Progressive, top-to-bottom load for first page only
+                    progressiveLoadHistoryStatuses();
+                    // Optional: refresh on visibility/focus to update latest
+                    document.addEventListener('visibilitychange', () => {
+                        if (document.visibilityState === 'visible') {
+                            progressiveLoadHistoryStatuses();
+                        }
+                    });
+                    window.addEventListener('focus', () => {
+                        progressiveLoadHistoryStatuses();
+                    });
+                } else {
+                    // Do not load live API statuses on non-first pages
+                    try { if (historyPollIntervalId) clearInterval(historyPollIntervalId); } catch(_) {}
+                }
             } else {
                 // Assuming it might be the index/single promo page if none of the others match specifically
                 console.log("Running on Index/Single Promo Page specific init (fallback)...");

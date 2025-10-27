@@ -67,39 +67,43 @@
                                         {% set single_order_id = entry.get('order_id') %}
                                         {% set multiple_orders = entry.get('orders') %}
                                         {% if single_provider and single_order_id %}
-                                            <div class="orders-section mt-1">
-                                                <div class="order-item" data-provider="{{ single_provider }}" data-order-id="{{ single_order_id }}">
-                                                    <div><strong>Order:</strong> {{ single_order_id }} <span class="small text-white fw-bold">({{ single_provider }})</span></div>
-                                                    <div class="order-status-fields small">
-                                                        Charge: <span class="order-status-charge">-</span>
-                                                        Start: <span class="order-status-start">-</span>
-                                                        Status: <span class="order-status-status">-</span>
-                                                        Remaining: <span class="order-status-remains">-</span>
-                                                        Currency: <span class="order-status-currency">-</span>
-                                                    </div>
+                                        <div class="orders-section mt-1">
+                                            <div class="order-item" data-provider="{{ single_provider }}" data-order-id="{{ single_order_id }}">
+                                                <div><strong>Order:</strong> {{ single_order_id }} <span class="small text-white fw-bold">(
+                                                    <a href="{{ single_provider | provider_order_url }}" target="_blank" rel="noopener" class="text-primary text-decoration-underline">{{ single_provider }}</a>
+                                                )</span></div>
+                                                <div class="order-status-fields small">
+                                                    Charge: <span class="order-status-charge">-</span>
+                                                    Start: <span class="order-status-start">-</span>
+                                                    Status: <span class="order-status-status">-</span>
+                                                    Remaining: <span class="order-status-remains">-</span>
+                                                    Currency: <span class="order-status-currency">-</span>
                                                 </div>
                                             </div>
-                                        {% endif %}
-                                        {% if multiple_orders %}
-                                            <div class="orders-section mt-1">
-                                                {% for ord in multiple_orders %}
-                                                    {% set p = ord.get('provider') %}
-                                                    {% set oid = ord.get('order_id') %}
-                                                    {% if p and oid %}
-                                                        <div class="order-item" data-provider="{{ p }}" data-order-id="{{ oid }}">
-                                                            <div><strong>Order:</strong> {{ oid }} <span class="small text-white fw-bold">({{ p }})</span></div>
-                                                            <div class="order-status-fields small">
-                                                                Charge: <span class="order-status-charge">-</span>
-                                                                Start: <span class="order-status-start">-</span>
-                                                                Status: <span class="order-status-status">-</span>
-                                                                Remaining: <span class="order-status-remains">-</span>
-                                                                Currency: <span class="order-status-currency">-</span>
-                                                            </div>
+                                        </div>
+                                    {% endif %}
+                                    {% if multiple_orders %}
+                                        <div class="orders-section mt-1">
+                                            {% for ord in multiple_orders %}
+                                                {% set p = ord.get('provider') %}
+                                                {% set oid = ord.get('order_id') %}
+                                                {% if p and oid %}
+                                                    <div class="order-item" data-provider="{{ p }}" data-order-id="{{ oid }}">
+                                                        <div><strong>Order:</strong> {{ oid }} <span class="small text-white fw-bold">(
+                                                            <a href="{{ p | provider_order_url }}" target="_blank" rel="noopener" class="text-primary text-decoration-underline">{{ p }}</a>
+                                                        )</span></div>
+                                                        <div class="order-status-fields small">
+                                                            Charge: <span class="order-status-charge">-</span>
+                                                            Start: <span class="order-status-start">-</span>
+                                                            Status: <span class="order-status-status">-</span>
+                                                            Remaining: <span class="order-status-remains">-</span>
+                                                            Currency: <span class="order-status-currency">-</span>
                                                         </div>
-                                                    {% endif %}
-                                                {% endfor %}
-                                            </div>
-                                        {% endif %}
+                                                    </div>
+                                                {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                     </td>
                                     {# #}
                                     <td class="status-cell">Loading...</td>

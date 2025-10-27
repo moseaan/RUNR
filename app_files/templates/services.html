@@ -6,7 +6,12 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2 class="mb-4">Services Configuration</h2>
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2 class="mb-0">Services Configuration</h2>
+        <a href="/api/export/services-configs" class="btn btn-outline-primary btn-sm" download>
+            Export Configs
+        </a>
+    </div>
     
     <!-- Status Area -->
     <div id="services-status-area" class="status-area mb-3" style="min-height: 1.5em;">

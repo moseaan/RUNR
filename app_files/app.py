@@ -1,7 +1,7 @@
 import sys
 import os
 
-from flask import Flask, render_template, jsonify, request, send_from_directory
+from flask import Flask, render_template, jsonify, request, send_from_directory, send_file
 from flask_apscheduler import APScheduler # Import APScheduler
 import profile_manager
 import api_runner  # API-based ordering runner
@@ -16,12 +16,15 @@ import datetime # Import datetime
 from markupsafe import Markup # For rendering HTML safely if needed
 import os # Import os for development server check
 import instagram_monitor # Import the new monitor module
+from urllib.parse import urlparse # For building provider order links
 from apscheduler.jobstores.base import JobLookupError # For removing jobs
 import json
 import uuid
 import logging
 from waitress import serve # Added for Render deployment
 # from apscheduler.executors.asyncio import AsyncIOExecutor # REMOVE Import
+import io
+import zipfile
 
 # --- App and Scheduler Configuration ---
 class Config:
@@ -230,6 +233,27 @@ def format_datetime_filter(value, format='%Y-%m-%d %H:%M:%S'):
         # Handle cases where value is not a valid ISO string or None
         return value # Return original value if parsing fails
 
+@app.template_filter('provider_order_url')
+def provider_order_url_filter(provider: str) -> str:
+    """Return a best-effort URL to the provider's Orders page.
+    Uses providers_api.BASE_URLS to derive the root domain, then appends /orders.
+    Falls back to https://<provider>.com if unknown, else '#'.
+    """
+    try:
+        prov = providers_api._normalize_provider(provider) if hasattr(providers_api, '_normalize_provider') else str(provider or '').strip().lower().replace(' ', '')
+        base_api = providers_api.BASE_URLS.get(prov)
+        if base_api:
+            u = urlparse(base_api)
+            root = f"{u.scheme}://{u.netloc}"
+            return f"{root}/orders"
+        # Fallback: guess domain from provider name
+        p = (str(provider or '').strip().lower().replace(' ', ''))
+        if p:
+            return f"https://{p}.com"
+    except Exception:
+        pass
+    return '#'
+
 # --- Global state for job status and stop requests --- 
 job_status_updates = {} # Stores the latest status for each job ID
 requested_stops = set() # Stores job_ids requested to stop
@@ -395,6 +419,32 @@ def get_services_platforms():
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
+# --- Export Endpoints ---
+@app.route('/api/export/services-configs', methods=['GET'])
+def export_services_configs():
+    try:
+        services_json_path = services_catalog._services_json_path()
+        if os.path.exists(services_json_path):
+            # Serve the current catalog JSON directly
+            return send_file(services_json_path, mimetype='application/json', as_attachment=True, download_name='services_catalog.json')
+        # Fallback: generate from memory
+        data = { 'services': services_catalog._load_services_json(refresh=True), 'version': '1.0' }
+        return send_file(io.BytesIO(json.dumps(data, indent=2).encode('utf-8')), mimetype='application/json', as_attachment=True, download_name='services_catalog.json')
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/export/profiles', methods=['GET'])
+def export_profiles():
+    try:
+        profiles_path = profile_manager.DEFAULT_PROFILE_FILE
+        if not os.path.exists(profiles_path):
+            # Return empty JSON structure if no profiles yet
+            data = {}
+            return send_file(io.BytesIO(json.dumps(data, indent=4).encode('utf-8')), mimetype='application/json', as_attachment=True, download_name='profiles.json')
+        return send_file(profiles_path, mimetype='application/json', as_attachment=True, download_name='profiles.json')
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @app.route('/api/services/engagements', methods=['GET'])
 def get_services_engagements():
     platform = request.args.get('platform', '').strip()
@@ -424,8 +474,26 @@ def get_services_by_category():
 def get_service_overrides():
     """Get all configured service overrides."""
     try:
-        overrides = services_catalog._load_overrides_cache()
-        return jsonify({"success": True, "overrides": overrides})
+        # Reflect effective selections from services catalog JSON
+        services = services_catalog._load_services_json()
+        mapping = {}
+        for s in services:
+            plat = (s.get('platform') or '').strip()
+            eng = (s.get('service_category') or '').strip()
+            if not plat or not eng:
+                continue
+            mapping.setdefault(plat, {})[eng] = {
+                'service_id': s.get('service_id'),
+                'provider': s.get('provider'),
+                'provider_label': s.get('provider_label'),
+                'name': s.get('name'),
+                'min_qty': s.get('min_qty'),
+                'max_qty': s.get('max_qty'),
+                'rate_per_1k': s.get('rate_per_1k'),
+                'tier': s.get('tier'),
+                'notes': s.get('notes'),
+            }
+        return jsonify({"success": True, "overrides": mapping})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -882,9 +950,18 @@ def get_job_status(job_id):
 @app.route('/api/history/live_status', methods=['GET'])
 def get_history_live_status():
     try:
-        # Limit to last N entries to avoid excessive polling
+        # Optional: filter by specific job IDs (comma-separated or repeated job_id params)
+        q_job_ids = (request.args.get('job_ids') or '').strip()
+        job_ids = []
+        if q_job_ids:
+            job_ids = [jid for jid in [s.strip() for s in q_job_ids.split(',')] if jid]
+        else:
+            job_ids = [jid for jid in request.args.getlist('job_id') if jid]
+
+        # Limit to last N entries when no explicit job IDs are provided
         N = int(request.args.get('limit', 30))
         N = max(1, min(N, 50))
+
         history = history_manager.load_history()
         results = []
 
@@ -906,7 +983,20 @@ def get_history_live_status():
                 return 'failed'
             return s
 
-        for entry in history[:N]:
+        # Build index for fast lookup
+        idx = { str(e.get('job_id')): e for e in history if e.get('job_id') }
+
+        # Determine which entries to process
+        entries_to_process = []
+        if job_ids:
+            for jid in job_ids:
+                e = idx.get(str(jid))
+                if e:
+                    entries_to_process.append(e)
+        else:
+            entries_to_process = history[:N]
+
+        for entry in entries_to_process:
             job_id = entry.get('job_id')
             if not job_id:
                 continue
@@ -948,7 +1038,6 @@ def get_history_live_status():
                 if any(s in ('failed','error','canceled') for s in statuses):
                     agg = 'failed'
                 elif any(s in ('processing','pending','partial') for s in statuses):
-                    # show processing over pending if present
                     if 'processing' in statuses:
                         agg = 'processing'
                     elif 'partial' in statuses:
