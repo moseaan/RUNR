@@ -71,10 +71,17 @@ def _normalize_provider(p: str) -> str:
 
 
 def _migrate_csv_to_json() -> None:
-    """One-time migration: convert CSV to JSON if JSON doesn't exist."""
+    """One-time migration: convert CSV to JSON if JSON doesn't exist or is empty."""
     json_path = _services_json_path()
     if os.path.exists(json_path):
-        return  # Already migrated
+        # Check if JSON has services already - if so, never overwrite
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                if data.get('services') and len(data.get('services', [])) > 0:
+                    return  # Already has services, don't migrate
+        except Exception:
+            pass  # If can't read, proceed with migration
     
     csv_path = _csv_path()
     if not os.path.exists(csv_path):
