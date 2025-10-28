@@ -5,6 +5,7 @@ waitress
 requests
 beautifulsoup4
 pycryptodome
+pytz
 google-api-python-client
 google-auth-httplib2
 google-auth-oauthlib

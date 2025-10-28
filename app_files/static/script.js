@@ -177,69 +177,54 @@ document.addEventListener('DOMContentLoaded', function() {
         setJobMetadata(meta);
     }
 
-    // Restore active jobs on page load
+    // Restore active jobs on page load (cross-device support)
     async function restoreActiveJobs() {
-        const storedIds = getStoredActiveJobs();
-        const meta = getJobMetadata();
-        if (!storedIds || storedIds.length === 0) return;
-
-        // Fetch current active jobs from server
-        let serverActiveJobs = [];
         try {
-            const res = await apiCall('/api/jobs/active', 'GET');
-            if (res && res.success && Array.isArray(res.jobs)) {
-                serverActiveJobs = res.jobs.map(j => j.job_id);
+            // Fetch ALL active jobs from server (source of truth)
+            const data = await apiCall('/api/jobs/active');
+            if (!data || !data.success || !Array.isArray(data.jobs)) {
+                console.warn('No active jobs to restore or API call failed.');
+                return;
+            }
+
+            console.log(`Restoring ${data.jobs.length} active job(s) from server...`);
+            
+            for (const job of data.jobs) {
+                const { job_id, label, link, container_id } = job;
+                
+                // Check if job row already exists (avoid duplicates)
+                if (document.getElementById(`job-${job_id}`)) {
+                    console.log(`Job row for ${job_id} already exists, skipping.`);
+                    continue;
+                }
+                
+                // Create job row with server metadata
+                if (label && container_id) {
+                    createJobRow(container_id, job_id, label, link || '');
+                    // Start polling for this job
+                    startPerJobPolling(job_id);
+                    // Update localStorage for redundancy
+                    try {
+                        addActiveJobId(job_id);
+                        saveJobMeta(job_id, container_id, label, link || '');
+                    } catch (_) {}
+                } else {
+                    console.warn(`Job ${job_id} missing metadata (label or container_id), skipping.`);
+                }
+            }
+
+            // Clean up localStorage: remove jobs not in server's active list
+            const serverActiveIds = data.jobs.map(j => j.job_id);
+            const storedIds = getStoredActiveJobs();
+            for (const jobId of storedIds) {
+                if (!serverActiveIds.includes(jobId)) {
+                    console.log(`Removing completed job ${jobId} from localStorage.`);
+                    removeActiveJobId(jobId);
+                    removeJobMeta(jobId);
+                }
             }
         } catch (e) {
-            console.warn('Failed to fetch active jobs from server:', e);
-        }
-
-        // Restore rows for jobs that are still active on server
-        for (const jobId of storedIds) {
-            // Check if job is still active on server
-            if (!serverActiveJobs.includes(jobId)) {
-                // Job completed, remove from storage
-                removeActiveJobId(jobId);
-                removeJobMeta(jobId);
-                continue;
-            }
-
-            // Check if row already exists
-            if (document.getElementById(`job-${jobId}`)) {
-                continue; // Already displayed
-            }
-
-            // Get metadata
-            const jobMeta = meta[jobId];
-            if (!jobMeta) {
-                // No metadata, try to fetch status and create minimal row
-                try {
-                    const statusRes = await apiCall(`/api/job_status/${encodeURIComponent(jobId)}`);
-                    if (statusRes && statusRes.success) {
-                        const status = (statusRes.status || '').toLowerCase();
-                        if (['success','failed','stopped'].includes(status)) {
-                            removeActiveJobId(jobId);
-                            removeJobMeta(jobId);
-                            continue;
-                        }
-                        // Create minimal row
-                        const containerId = jobId.startsWith('single_') ? 'single-promo-jobs' : 'auto-promo-jobs';
-                        const label = jobId.startsWith('single_') ? 'Single Promo' : 'Auto Promo';
-                        createJobRow(containerId, jobId, label, '');
-                        startPerJobPolling(jobId);
-                    }
-                } catch (e) {
-                    console.warn(`Failed to restore job ${jobId}:`, e);
-                }
-                continue;
-            }
-
-            // Restore with full metadata
-            const { containerId, label, link } = jobMeta;
-            if (containerId && label) {
-                createJobRow(containerId, jobId, label, link || '');
-                startPerJobPolling(jobId);
-            }
+            console.error('Error restoring active jobs:', e);
         }
     }
 
@@ -431,6 +416,34 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- Job Rows and Per-Job Polling (for async promos) ---
     const jobPollers = {}; // jobId -> intervalId
     const jobDelayCountdowns = {}; // jobId -> { intervalId, endAt }
+    const COUNTDOWN_STORAGE_KEY = 'mim_countdown_timers';
+
+    function saveCountdownToStorage(jobId, endAt, loopProgress) {
+        try {
+            const saved = JSON.parse(localStorage.getItem(COUNTDOWN_STORAGE_KEY) || '{}');
+            saved[jobId] = { endAt, loopProgress, savedAt: Date.now() };
+            localStorage.setItem(COUNTDOWN_STORAGE_KEY, JSON.stringify(saved));
+        } catch (e) {
+            console.warn('Could not save countdown to localStorage:', e);
+        }
+    }
+
+    function getCountdownFromStorage(jobId) {
+        try {
+            const saved = JSON.parse(localStorage.getItem(COUNTDOWN_STORAGE_KEY) || '{}');
+            return saved[jobId];
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function clearCountdownFromStorage(jobId) {
+        try {
+            const saved = JSON.parse(localStorage.getItem(COUNTDOWN_STORAGE_KEY) || '{}');
+            delete saved[jobId];
+            localStorage.setItem(COUNTDOWN_STORAGE_KEY, JSON.stringify(saved));
+        } catch (e) {}
+    }
 
     function clearJobCountdown(jobId) {
         const cd = jobDelayCountdowns[jobId];
@@ -438,6 +451,7 @@ document.addEventListener('DOMContentLoaded', function() {
             try { clearInterval(cd.intervalId); } catch(_) {}
         }
         delete jobDelayCountdowns[jobId];
+        clearCountdownFromStorage(jobId);
     }
 
     function parseDelaySeconds(message) {
@@ -465,10 +479,21 @@ document.addEventListener('DOMContentLoaded', function() {
         return null;
     }
 
-    function startJobCountdown(jobId, seconds, stepEl, baseLabel) {
+    function parseLoopProgress(message) {
+        if (!message || typeof message !== 'string') return '';
+        // Match patterns like "5/10 loops completed" or "15/25 loops completed"
+        const match = message.match(/(\d+)\/(\d+)\s*loops?\s*completed/i);
+        if (match) {
+            return ` -- ${match[1]}/${match[2]} Loops Completed`;
+        }
+        return '';
+    }
+
+    function startJobCountdown(jobId, seconds, stepEl, baseLabel, originalMessage) {
       if (!jobId || !stepEl || !seconds || seconds <= 0) return;
       const now = Date.now();
       const proposedEndAt = now + Math.ceil(seconds) * 1000;
+      const loopProgress = originalMessage ? parseLoopProgress(originalMessage) : '';
       const existing = jobDelayCountdowns[jobId];
       // Reuse existing if shorter/new
       if (existing && existing.endAt && existing.endAt > now) {
@@ -479,7 +504,7 @@ document.addEventListener('DOMContentLoaded', function() {
           const remainingMs0 = Math.max(0, existing.endAt - now);
           const rem0 = Math.ceil(remainingMs0 / 1000);
           const pretty0 = `${rem0}s`;
-          stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty0}` : `Status: next loop in ${pretty0}`;
+          stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty0}${loopProgress}` : `Status: Next loop in ${pretty0}${loopProgress}`;
           return;
       }
       if (existing && existing.endAt && existing.endAt <= now) {
@@ -494,8 +519,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
       const endAt = proposedEndAt;
       clearJobCountdown(jobId);
+      // Save to localStorage for page reload persistence
+      saveCountdownToStorage(jobId, endAt, loopProgress);
+      
       jobDelayCountdowns[jobId] = {
           endAt,
+          loopProgress,
           declaredSeconds: Math.ceil(seconds),
           finishedAt: null,
           intervalId: setInterval(() => {
@@ -506,17 +535,18 @@ document.addEventListener('DOMContentLoaded', function() {
                       jobDelayCountdowns[jobId].intervalId = null;
                       jobDelayCountdowns[jobId].finishedAt = Date.now();
                   }
+                  clearCountdownFromStorage(jobId);
                   stepEl.textContent = baseLabel ? `${baseLabel}: resuming...` : 'Status: resuming...';
                   return;
               }
               const rem = Math.ceil(remainingMs / 1000);
               const pretty = `${rem}s`;
-              stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty}` : `Status: next loop in ${pretty}`;
+              stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty}${loopProgress}` : `Status: Next loop in ${pretty}${loopProgress}`;
           }, 1000)
       };
       // Update immediately so user sees it tick without waiting 1s
       const pretty0 = `${Math.ceil(seconds)}s`;
-      stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty0}` : `Status: next loop in ${pretty0}`;
+      stepEl.textContent = baseLabel ? `${baseLabel}: next loop in ${pretty0}${loopProgress}` : `Status: Next loop in ${pretty0}${loopProgress}`;
   }
 
     function createJobRow(containerId, jobId, label, link) {
@@ -548,10 +578,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     stopBtn.disabled = true;
                     if (statusChip) {
                         statusChip.className = 'badge bg-warning';
-                        statusChip.textContent = 'stopping';
+                        statusChip.textContent = 'stopped';
                     }
                     const res = await apiCall('/api/stop_promo', 'POST', { job_id: jobId });
-                    if (!(res && res.status === 'success')) {
+                    if (!(res && res.success)) {
                         // Re-enable if stop failed
                         stopBtn.disabled = false;
                         if (statusChip) {
@@ -601,7 +631,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const statusChip = document.getElementById(`job-status-${jobId}`);
         const stepEl = document.getElementById(`job-step-${jobId}`);
         const stopBtn = document.getElementById(`stop-job-${jobId}`);
-        const intervalId = setInterval(async () => {
+        let intervalId = null;
+        
+        // Try to restore countdown from localStorage (survives page refresh)
+        const savedCountdown = getCountdownFromStorage(jobId);
+        if (savedCountdown && savedCountdown.endAt && stepEl) {
+            const now = Date.now();
+            const remainingMs = savedCountdown.endAt - now;
+            if (remainingMs > 0) {
+                // Countdown is still active, restore it
+                const remainingSecs = Math.ceil(remainingMs / 1000);
+                console.log(`Restoring countdown for ${jobId}: ${remainingSecs}s remaining`);
+                // Create a fake message with the loop progress to be parsed
+                const fakeMsg = savedCountdown.loopProgress ? `Delay ${remainingSecs}s ${savedCountdown.loopProgress.replace(' -- ', '')}` : `Delay ${remainingSecs}s`;
+                startJobCountdown(jobId, remainingSecs, stepEl, 'Status', fakeMsg);
+            } else {
+                // Countdown expired while page was unloaded
+                clearCountdownFromStorage(jobId);
+            }
+        }
+        
+        // Poll function to be called both immediately and on interval
+        const doPoll = async () => {
             const keep = await pollJob(
                 jobId,
                 (status, message) => {
@@ -620,7 +671,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         // Detect delay-before-next-loop and start live countdown
                         const delaySecs = parseDelaySeconds(msg);
                         if (delaySecs != null && /delay|next\s*loop|wait|cooldown|sleep/i.test(msg)) {
-                            startJobCountdown(jobId, delaySecs, stepEl, 'Status');
+                            startJobCountdown(jobId, delaySecs, stepEl, 'Status', msg);
                         } else {
                             // If we previously had a countdown for this job, clear it
                             clearJobCountdown(jobId);
@@ -631,8 +682,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (stopBtn) {
                         if (status === 'stopped' || status === 'failed' || status === 'success') {
                             stopBtn.remove();
-                        } else if (status === 'stopping') {
-                            stopBtn.disabled = true;
                         }
                     }
                 },
@@ -657,10 +706,16 @@ document.addEventListener('DOMContentLoaded', function() {
                     try { stopBtn.remove(); } catch (e) { /* ignore */ }
                 }
             }
-        }, 3000);
+        };
+        
+        // Poll immediately on job restore (don't wait 3 seconds)
+        doPoll();
+        
+        // Then set up interval for subsequent polls
+        intervalId = setInterval(doPoll, 3000);
         jobPollers[jobId] = intervalId;
     }
-    
+
     // Format ISO datetime string
     function formatIsoDateTime(isoString) {
         if (!isoString) return 'N/A';
@@ -1104,7 +1159,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const rate = (svc.rate_per_1k != null) ? parseFloat(svc.rate_per_1k) : null;
         const qty = qtyInput ? parseInt(qtyInput.value || '0', 10) : 0;
         const cost = (rate != null && !isNaN(qty)) ? (rate * qty / 1000.0) : null;
-        el.textContent = (cost != null) ? `Total Cost: ${formatCurrency(cost)}` : '';
+        el.textContent = (cost != null) ? `Total Quantity: ${qty.toLocaleString()} -- Total Cost: ${formatCurrency(cost)}` : '';
     }
 
     function clearSingleCostDisplay() {
@@ -1950,12 +2005,22 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Calculate quantity per loop
             let qtyPerLoop = 0;
+            let minTotalQty, maxTotalQty, minCost, maxCost;
+            
             if (eng.use_random_quantity) {
                 const minQty = parseInt(eng.min_quantity) || 0;
                 const maxQty = parseInt(eng.max_quantity) || 0;
                 qtyPerLoop = (minQty + maxQty) / 2; // Average for estimate
+                
+                // Calculate ranges
+                minTotalQty = minQty * loops;
+                maxTotalQty = maxQty * loops;
+                minCost = (rate * minTotalQty) / 1000;
+                maxCost = (rate * maxTotalQty) / 1000;
             } else {
                 qtyPerLoop = parseInt(eng.fixed_quantity) || 0;
+                minTotalQty = maxTotalQty = qtyPerLoop * loops;
+                minCost = maxCost = (rate * minTotalQty) / 1000;
             }
             
             const totalQty = qtyPerLoop * loops;
@@ -1963,11 +2028,15 @@ document.addEventListener('DOMContentLoaded', function() {
             totalCost += engCost;
             
             const engType = eng.type || 'Unknown';
-            costBreakdown.push(`${engType}: ${formatCurrency(engCost)}`);
+            if (eng.use_random_quantity) {
+                costBreakdown.push(`${engType} - Quantity: ${minTotalQty.toLocaleString()}-${maxTotalQty.toLocaleString()} -- Cost: ${formatCurrency(minCost)}-${formatCurrency(maxCost)}`);
+            } else {
+                costBreakdown.push(`${engType} - Quantity: ${minTotalQty.toLocaleString()} -- Cost: ${formatCurrency(minCost)}`);
+            }
         }
         
         if (totalCost > 0) {
-            costDisplay.innerHTML = `<strong>Estimated Total Cost:</strong> ${formatCurrency(totalCost)}<br>${costBreakdown.join(' | ')}`;
+            costDisplay.innerHTML = `<strong>Estimated Total Cost:</strong> ${formatCurrency(totalCost)}<br>${costBreakdown.join('<br>')}`;
         } else {
             costDisplay.textContent = '';
         }
@@ -3881,6 +3950,8 @@ document.addEventListener('DOMContentLoaded', function() {
             // Pass loaded profiles to avoid race condition
             await initializePromoPage(loadedProfiles);
             await initializeSinglePromoPage();
+            // Restore any active jobs from server for cross-device visibility
+            await restoreActiveJobs();
         } else if (isOnProfilePage) {
             console.log("Initializing Profiles Page (detected by element)...");
             // Populate dropdown first

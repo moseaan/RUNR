@@ -23,7 +23,7 @@
                             <th>Details</th>
                             <th>Status</th>
                             <th>Message</th>
-                            <th>Duration (s)</th>
+                            <th>Duration</th>
                             <th>Cost</th>
                         </tr>
                     </thead>
@@ -41,7 +41,11 @@
                                     </td>
                                     {# #}
                                     {# OLD TYPE LOGIC #}
-                                    <td>{{ entry.get('type', 'Unknown') | capitalize }}</td>
+                                    <td>
+                                        {% set raw_type = entry.get('type', 'Unknown') %}
+                                        {% set normalized_type = raw_type | replace(' (api by service)', '') | replace(' (api)', '') | replace(' (API by service)', '') | replace(' (API)', '') %}
+                                        {{ normalized_type | capitalize }}
+                                    </td>
                                     {# #}
                                     {# OLD DETAILS LOGIC #}
                                     <td>

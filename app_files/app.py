@@ -13,6 +13,7 @@ import config # Import config to access MINIMUM_QUANTITIES
 import traceback # Import traceback
 import history_manager # Import history manager
 import datetime # Import datetime
+import pytz # For timezone conversion
 from markupsafe import Markup # For rendering HTML safely if needed
 import os # Import os for development server check
 import instagram_monitor # Import the new monitor module
@@ -48,6 +49,76 @@ scheduler.start()
 
 # --- Job Status Tracking --- (Used for manual/profile promotions)
 job_statuses = {} # In-memory dictionary to store job status: {job_id: {'status': 'pending/running/success/failed', 'message': '...'}}
+
+# Persistent storage for active jobs (survives restarts)
+ACTIVE_JOBS_FILE = os.path.join(os.path.dirname(__file__), 'data', 'active_jobs.json')
+
+def save_active_jobs():
+    """Save active jobs to disk for restart recovery."""
+    try:
+        os.makedirs(os.path.dirname(ACTIVE_JOBS_FILE), exist_ok=True)
+        # Only save non-terminal jobs
+        terminal_statuses = {'success', 'failed', 'stopped'}
+        active = {jid: info for jid, info in job_statuses.items() 
+                  if (info.get('status') or '').lower() not in terminal_statuses}
+        with open(ACTIVE_JOBS_FILE, 'w') as f:
+            json.dump(active, f, indent=2)
+    except Exception as e:
+        print(f"Warning: Could not save active jobs: {e}")
+
+def load_active_jobs():
+    """Load active jobs from disk after restart and reschedule them."""
+    try:
+        if os.path.exists(ACTIVE_JOBS_FILE):
+            with open(ACTIVE_JOBS_FILE, 'r') as f:
+                saved_jobs = json.load(f)
+            
+            if saved_jobs:
+                print(f"Found {len(saved_jobs)} interrupted job(s) from previous session. Resuming...")
+                for job_id, job_info in saved_jobs.items():
+                    # Restore to job_statuses with 'resuming' status
+                    job_info['status'] = 'pending'
+                    job_info['message'] = 'Resuming from previous session...'
+                    job_statuses[job_id] = job_info
+                    
+                    # Try to reschedule the job
+                    try:
+                        # Parse job type from job_id
+                        if job_id.startswith('promo_api_') or job_id.startswith('monitor_promo_'):
+                            # Auto promo - need to reload profile and reschedule
+                            profile_name = job_info.get('profile_name')
+                            link = job_info.get('link')
+                            if profile_name and link:
+                                profiles = profile_manager.load_profiles()
+                                if profile_name in profiles:
+                                    profile_data = profiles[profile_name]
+                                    platform_filter = None  # Extract from label if needed
+                                    
+                                    scheduler.add_job(
+                                        id=job_id,
+                                        func=api_runner.run_profile_api_promo,
+                                        trigger='date',
+                                        args=[profile_name, profile_data, link, job_id, update_job_status, save_history_entry_callback, requested_stops, platform_filter],
+                                        misfire_grace_time=None
+                                    )
+                                    print(f"  ✅ Rescheduled: {job_id} ({profile_name})")
+                                else:
+                                    print(f"  ⚠️ Cannot resume {job_id}: Profile '{profile_name}' not found")
+                                    job_statuses[job_id]['status'] = 'failed'
+                                    job_statuses[job_id]['message'] = 'Cannot resume: Profile not found'
+                        elif job_id.startswith('single_api_'):
+                            # Single promo - would need platform, engagement, link, quantity
+                            # For now, mark as unable to resume
+                            print(f"  ⚠️ Cannot auto-resume single promo: {job_id}")
+                            job_statuses[job_id]['status'] = 'stopped'
+                            job_statuses[job_id]['message'] = 'Server restarted - manual restart required'
+                    except Exception as e:
+                        print(f"  ❌ Error rescheduling {job_id}: {e}")
+                        job_statuses[job_id]['status'] = 'failed'
+                        job_statuses[job_id]['message'] = f'Resume failed: {e}'
+    except Exception as e:
+        print(f"Warning: Could not load active jobs: {e}")
+        traceback.print_exc()
 
 # --- CONSTANTS --- (Keep location)
 # MONTIORING_JOB_ID = "instagram_monitoring_job" # Old ID, removed
@@ -148,7 +219,15 @@ def run_global_monitoring_check():
                         # Use a unique job ID including target ID and timestamp
                         promo_job_id = f'monitor_promo_{target_id}_{time.time()}' 
                         # Use the existing job_statuses dict for tracking these triggered promos
-                        job_statuses[promo_job_id] = {'status': 'pending', 'message': f'Monitor trigger for {target_username} ({promo_profile_name})'} 
+                        label = f"Auto Promo: {promo_profile_name} (Monitor: {target_username})"
+                        job_statuses[promo_job_id] = {
+                            'status': 'pending', 
+                            'message': f'Monitor trigger for {target_username} ({promo_profile_name})',
+                            'label': label,
+                            'link': latest_post_url,
+                            'container_id': 'auto-promo-jobs',
+                            'profile_name': promo_profile_name  # For resume capability
+                        }
                         scheduler.add_job(
                             id=promo_job_id,
                             func=api_runner.run_profile_api_promo,
@@ -156,6 +235,7 @@ def run_global_monitoring_check():
                             args=[promo_profile_name, promo_settings, latest_post_url, promo_job_id, update_job_status, save_history_entry_callback, requested_stops, None],
                             misfire_grace_time=None
                         )
+                        save_active_jobs()  # Save to disk for restart recovery
                         print(f"[Global Check] 📆 Scheduled promotion job {promo_job_id} for post {latest_post_url}")
                         # Successfully scheduled, update last pushed URL in the target config
                         target['last_pushed_post_url'] = latest_post_url
@@ -209,11 +289,13 @@ def initialize_monitoring_job():
 # Initialize the monitoring job right after scheduler starts
 with app.app_context(): 
     initialize_monitoring_job()
+    # Load any interrupted jobs from previous session
+    load_active_jobs()
 
 # --- Custom Jinja Filter ---
 @app.template_filter('format_datetime')
 def format_datetime_filter(value, format='%Y-%m-%d %H:%M:%S'):
-    """Formats an ISO datetime string into a more readable format."""
+    """Formats an ISO datetime string into EST timezone with format: MM/DD/YYYY\nH:MM:SS AM/PM"""
     if not value:
         return "N/A"
     try:
@@ -225,9 +307,20 @@ def format_datetime_filter(value, format='%Y-%m-%d %H:%M:%S'):
             dt_object = value
         else:
             return value # Cannot format
-        # Format, potentially converting timezone if needed (assuming stored as UTC)
-        # For simplicity, format directly for now
-        return dt_object.strftime(format)
+        
+        # Ensure the datetime is timezone-aware (assume EST if naive, not UTC)
+        if dt_object.tzinfo is None:
+            est = pytz.timezone('America/New_York')
+            dt_object = est.localize(dt_object)
+        else:
+            # If it's already timezone-aware, convert to EST
+            est = pytz.timezone('America/New_York')
+            dt_object = dt_object.astimezone(est)
+        
+        # Format as: MM/DD/YYYY<br>H:MM:SS AM/PM (Windows-compatible)
+        date_str = dt_object.strftime('%m/%d/%Y').lstrip('0').replace('/0', '/')  # Remove leading zeros
+        time_str = dt_object.strftime('%I:%M:%S %p').lstrip('0')  # Remove leading zero from hour
+        return Markup(f"{date_str}<br>{time_str}")
     except (ValueError, TypeError) as e:
         print(f"Error formatting datetime '{value}': {e}")
         # Handle cases where value is not a valid ISO string or None
@@ -264,6 +357,8 @@ def update_job_status(job_id, status, message=None):
         job_statuses[job_id]['status'] = status
         job_statuses[job_id]['message'] = message
         print(f"📣 Job Status Update: {job_id} -> {status} {f'({message})' if message else ''}")
+        # Save to disk after each update for restart recovery
+        save_active_jobs()
     else:
         print(f"Warning: Job ID {job_id} not found in status tracker for update ({status}).")
 
@@ -792,7 +887,15 @@ def start_promo_route():
     try:
         # Schedule API-based auto promo job using CSV services
         job_id = f'promo_api_{profile_name}_{time.time()}' 
-        job_statuses[job_id] = {'status': 'pending', 'message': 'Job scheduled, waiting to run.'}
+        label = f"Auto Promo: {profile_name}{' — ' + platform_filter if platform_filter else ''}"
+        job_statuses[job_id] = {
+            'status': 'pending', 
+            'message': 'Job scheduled, waiting to run.',
+            'label': label,
+            'link': link,
+            'container_id': 'auto-promo-jobs',
+            'profile_name': profile_name  # For resume capability
+        }
         scheduler.add_job(
             id=job_id,
             func=api_runner.run_profile_api_promo,
@@ -800,8 +903,9 @@ def start_promo_route():
             args=[profile_name, profile_data, link, job_id, update_job_status, save_history_entry_callback, requested_stops, platform_filter],
             misfire_grace_time=None
         )
+        save_active_jobs()  # Save to disk for restart recovery
         print(f"🗓️ Scheduled API job {job_id} for profile '{profile_name}'")
-        return jsonify({"success": True, "message": f"API automation scheduled for profile '{profile_name}'.", "job_id": job_id}) 
+        return jsonify({"success": True, "message": f"Automation scheduled for profile '{profile_name}'.", "job_id": job_id}) 
     except Exception as e:
         print(f"❌ Error scheduling job for profile '{profile_name}': {e}")
         traceback.print_exc()
@@ -841,7 +945,14 @@ def start_single_promo_route():
 
     try:
         job_id = f'single_api_{platform}_{engagement}_{time.time()}'
-        job_statuses[job_id] = {'status': 'pending', 'message': 'Job scheduled, waiting to run.'}
+        label = f"Single Promo: {platform} — {engagement} (x{quantity})"
+        job_statuses[job_id] = {
+            'status': 'pending', 
+            'message': 'Job scheduled, waiting to run.',
+            'label': label,
+            'link': link,
+            'container_id': 'single-promo-jobs'
+        }
         scheduler.add_job(
             id=job_id,
             func=api_runner.run_single_api_order,
@@ -849,12 +960,13 @@ def start_single_promo_route():
             args=[platform, engagement, link, quantity, job_id, update_job_status, save_history_entry_callback, requested_stops],
             misfire_grace_time=None
         )
+        save_active_jobs()  # Save to disk for restart recovery
         print(f"🗓️ Scheduled API job {job_id} for single promo")
-        return jsonify({"success": True, "message": f"Single promo (API) for {engagement} scheduled.", "job_id": job_id})
+        return jsonify({"success": True, "message": f"Single promo for {engagement} scheduled.", "job_id": job_id})
     except Exception as e:
         print(f"❌ Error scheduling single promo API job: {e}")
         traceback.print_exc()
-        return jsonify({"success": False, "error": "Failed to schedule API automation task"}), 500
+        return jsonify({"success": False, "error": "Failed to schedule automation task"}), 500
 
 
 # --- API Route to Start Single Promotion by Service (strict min/max) ---
@@ -888,7 +1000,14 @@ def start_single_promo_by_service_route():
 
     try:
         job_id = f'single_api_by_service_{platform}_{engagement}_{service_id}_{time.time()}'
-        job_statuses[job_id] = {'status': 'pending', 'message': 'Job scheduled, waiting to run.'}
+        label = f"Single Promo: {platform} — {engagement} (x{quantity}) [Service #{service_id}]"
+        job_statuses[job_id] = {
+            'status': 'pending', 
+            'message': 'Job scheduled, waiting to run.',
+            'label': label,
+            'link': link,
+            'container_id': 'single-promo-jobs'
+        }
         scheduler.add_job(
             id=job_id,
             func=api_runner.run_order_by_service,
@@ -896,12 +1015,13 @@ def start_single_promo_by_service_route():
             args=[platform, engagement, service_id, link, quantity, job_id, update_job_status, save_history_entry_callback, requested_stops],
             misfire_grace_time=None
         )
-        print(f"🗓️ Scheduled API job {job_id} for single promo by service")
-        return jsonify({"success": True, "message": f"Single promo by service scheduled.", "job_id": job_id})
+        save_active_jobs()  # Save to disk for restart recovery
+        print(f"🗓️ Scheduled API job {job_id} for single promo")
+        return jsonify({"success": True, "message": f"Single promo scheduled.", "job_id": job_id})
     except Exception as e:
-        print(f"❌ Error scheduling single promo by service API job: {e}")
+        print(f"❌ Error scheduling single promo API job: {e}")
         traceback.print_exc()
-        return jsonify({"success": False, "error": "Failed to schedule API automation task"}), 500
+        return jsonify({"success": False, "error": "Failed to schedule automation task"}), 500
 
 # --- Estimation Endpoints ---
 @app.route('/api/estimate/auto_cost', methods=['POST'])
@@ -1128,7 +1248,10 @@ def list_active_jobs():
                 active.append({
                     'job_id': jid,
                     'status': status,
-                    'message': info.get('message')
+                    'message': info.get('message'),
+                    'label': info.get('label', ''),
+                    'link': info.get('link', ''),
+                    'container_id': info.get('container_id', 'auto-promo-jobs')
                 })
         return jsonify({'success': True, 'jobs': active})
     except Exception as e:
@@ -1145,8 +1268,8 @@ def stop_promo_route():
     requested_stops.add(job_id)
     # Update visible status if tracked
     if job_id in job_statuses:
-        job_statuses[job_id]['status'] = 'stopping'
-        job_statuses[job_id]['message'] = 'Stop requested.'
+        job_statuses[job_id]['status'] = 'stopped'
+        job_statuses[job_id]['message'] = 'Stopped by user request.'
     return jsonify({'success': True})
 
  

@@ -2,6 +2,8 @@ import datetime
 import time
 import random
 import traceback
+import os
+import json
 from typing import Optional, Callable
 
 import services_catalog as sc
@@ -10,6 +12,53 @@ import providers_api as pa
 # Type alias for callbacks
 StatusCb = Callable[[str, str, Optional[str]], None]
 SaveHistoryCb = Callable[[dict], None]
+
+# State persistence for resume capability
+STATE_FILE = os.path.join(os.path.dirname(__file__), 'data', 'job_states.json')
+
+def save_job_state(job_id: str, state: dict):
+    """Save job execution state for resume on restart."""
+    try:
+        os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
+        # Load existing states
+        states = {}
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                states = json.load(f)
+        # Update this job's state
+        states[job_id] = {
+            **state,
+            'last_updated': datetime.datetime.now().isoformat()
+        }
+        # Save back
+        with open(STATE_FILE, 'w') as f:
+            json.dump(states, f, indent=2)
+    except Exception as e:
+        print(f"Warning: Could not save job state for {job_id}: {e}")
+
+def load_job_state(job_id: str) -> dict:
+    """Load saved job execution state."""
+    try:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                states = json.load(f)
+            return states.get(job_id, {})
+    except Exception as e:
+        print(f"Warning: Could not load job state for {job_id}: {e}")
+    return {}
+
+def clear_job_state(job_id: str):
+    """Clear job state after completion."""
+    try:
+        if os.path.exists(STATE_FILE):
+            with open(STATE_FILE, 'r') as f:
+                states = json.load(f)
+            if job_id in states:
+                del states[job_id]
+                with open(STATE_FILE, 'w') as f:
+                    json.dump(states, f, indent=2)
+    except Exception as e:
+        print(f"Warning: Could not clear job state for {job_id}: {e}")
 
 
 def run_single_api_order(platform: str, engagement: str, link: str, quantity: int,
@@ -71,7 +120,7 @@ def run_single_api_order(platform: str, engagement: str, link: str, quantity: in
         duration = (end_time - start_time).total_seconds()
         history_entry = {
             'job_id': job_id,
-            'type': 'Single Promo (API)',
+            'type': 'Single Promo',
             'profile_name': f"{platform} - {engagement}",
             'link': link,
             'quantity': quantity,
@@ -150,7 +199,7 @@ def run_order_by_service(platform: str, engagement: str, service_id: int, link: 
         duration = (end_time - start_time).total_seconds()
         history_entry = {
             'job_id': job_id,
-            'type': 'Single Promo (API by service)',
+            'type': 'Single Promo',
             'profile_name': f"{platform} - {engagement} - #{service_id}",
             'link': link,
             'quantity': quantity,
@@ -184,17 +233,25 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
         loop_settings: { loops, delay, random_delay, min_delay, max_delay }
       }
     """
-    start_time = datetime.datetime.now()
+    # Load saved state for resume capability
+    saved_state = load_job_state(job_id)
+    start_loop = saved_state.get('current_loop', 1) if saved_state else 1
+    start_time = datetime.datetime.fromisoformat(saved_state['start_time']) if saved_state.get('start_time') else datetime.datetime.now()
+    
     success = True
-    messages = []
-    total_orders = 0
-    placed_orders = []  # list of {provider, order_id, engagement, quantity}
+    messages = saved_state.get('messages', []) if saved_state else []
+    total_orders = saved_state.get('total_orders', 0) if saved_state else 0
+    placed_orders = saved_state.get('placed_orders', []) if saved_state else []
 
     def stopped():
         return job_id in requested_stops
 
     try:
-        status_update_callback(job_id, 'running', f"Starting API auto promo: {profile_name}")
+        if start_loop == 1:
+            status_update_callback(job_id, 'running', f"Starting API auto promo: {profile_name}")
+        else:
+            status_update_callback(job_id, 'running', f"Resuming API auto promo: {profile_name} from loop {start_loop}")
+            print(f"[Resume] Job {job_id} resuming from loop {start_loop}")
 
         engagements = list(profile_data.get('engagements') or [])
         loop_settings = dict(profile_data.get('loop_settings') or {})
@@ -204,7 +261,7 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
         min_delay = float(loop_settings.get('min_delay') or 0)
         max_delay = float(loop_settings.get('max_delay') or 0)
 
-        for loop_num in range(1, main_loops + 1):
+        for loop_num in range(start_loop, main_loops + 1):
             if stopped():
                 messages.append(f"Stopped before loop {loop_num}")
                 success = False
@@ -305,6 +362,17 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
                             placed_orders.append({'provider': provider, 'order_id': order_id_str, 'engagement': eng_type, 'quantity': int(qty), 'unit_rate_per_1k': unit_rate_f, 'cost': item_cost})
                         except Exception:
                             pass
+                        # Save state after each order
+                        save_job_state(job_id, {
+                            'current_loop': loop_num,
+                            'total_loops': main_loops,
+                            'start_time': start_time.isoformat(),
+                            'messages': messages,
+                            'total_orders': total_orders,
+                            'placed_orders': placed_orders,
+                            'profile_name': profile_name,
+                            'link': link
+                        })
                         try:
                             order_history_entry = {
                                 'job_id': f"{job_id}::order::{order_id_str}",
@@ -353,12 +421,41 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
                     delay_sec = max(0.0, fixed_delay)
 
                 if delay_sec > 0:
-                    status_update_callback(job_id, 'running', f"Delay {delay_sec:.1f}s before next loop...")
+                    # Check if resuming from a delay
+                    delay_start = datetime.datetime.now()
+                    if saved_state and saved_state.get('in_delay') and saved_state.get('current_loop') == loop_num:
+                        # Calculate remaining delay
+                        original_delay_start = datetime.datetime.fromisoformat(saved_state['delay_start'])
+                        elapsed = (delay_start - original_delay_start).total_seconds()
+                        remaining_delay = max(0, delay_sec - elapsed)
+                        if remaining_delay > 0:
+                            status_update_callback(job_id, 'running', f"Resuming delay: {remaining_delay:.1f}s remaining -- {loop_num}/{main_loops} loops completed")
+                            print(f"[Resume] Job {job_id} resuming delay with {remaining_delay:.1f}s remaining")
+                            delay_sec = remaining_delay
+                        saved_state = None  # Clear to prevent re-processing
+                    else:
+                        status_update_callback(job_id, 'running', f"Delay {delay_sec:.1f}s before next loop -- {loop_num}/{main_loops} loops completed")
+                    
                     slept = 0.0
                     step = 0.5
                     while slept < delay_sec:
                         if stopped():
                             break
+                        # Save state during delay every 2 seconds for resume
+                        if int(slept) % 2 == 0 and slept > 0:
+                            save_job_state(job_id, {
+                                'current_loop': loop_num,
+                                'total_loops': main_loops,
+                                'start_time': start_time.isoformat(),
+                                'in_delay': True,
+                                'delay_start': delay_start.isoformat(),
+                                'delay_duration': delay_sec + slept,
+                                'messages': messages,
+                                'total_orders': total_orders,
+                                'placed_orders': placed_orders,
+                                'profile_name': profile_name,
+                                'link': link
+                            })
                         time.sleep(step)
                         slept += step
                 if stopped():
@@ -384,7 +481,7 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
 
         history_entry = {
             'job_id': job_id,
-            'type': 'Auto Promo (API)',
+            'type': 'Auto Promo',
             'profile_name': profile_name,
             'link': link,
             'quantity': None,
@@ -400,3 +497,6 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
             save_history_callback(history_entry)
         except Exception:
             traceback.print_exc()
+        
+        # Clear job state after completion
+        clear_job_state(job_id)
