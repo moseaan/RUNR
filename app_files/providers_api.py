@@ -1,6 +1,12 @@
 import os
 from typing import Dict, Optional, Any
 import requests
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+# Look for .env in the project root (parent of app_files)
+_env_path = os.path.join(os.path.dirname(__file__), '..', '.env')
+load_dotenv(_env_path)
 
 # Base URLs for providers
 BASE_URLS = {
@@ -8,6 +14,7 @@ BASE_URLS = {
     'peakerr': 'https://peakerr.com/api/v2',
     'smmkings': 'https://smmkings.com/api/v2',
     'mysocialsboost': 'https://mysocialsboost.com/api/v2',
+    'morethanpanel': 'https://morethanpanel.com/api/v2',
 }
 
 _KEY_CACHE: Dict[str, Optional[str]] = {}
@@ -36,6 +43,8 @@ def _normalize_provider(p: str) -> str:
         return 'peakerr'
     if p.replace(' ', '').lower() == 'mysocialsboost':
         return 'mysocialsboost'
+    if p.replace(' ', '').lower() in ('morethanpanel', 'more than panel', 'mtp'):
+        return 'morethanpanel'
     return p.replace(' ', '').lower()
 
 
@@ -63,6 +72,8 @@ def get_api_key(provider: str) -> Optional[str]:
         key = os.environ.get('SMMKINGS_API_KEY') or os.environ.get('SMM_KINGS_API_KEY')
     elif prov == 'mysocialsboost':
         key = os.environ.get('MYSOCIALSBOOST_API_KEY')
+    elif prov == 'morethanpanel':
+        key = os.environ.get('MORETHANPANEL_API_KEY') or os.environ.get('MTP_API_KEY')
 
     # 2) Config file in repo (project_root/config/*.txt)
     if not key:
@@ -74,6 +85,8 @@ def get_api_key(provider: str) -> Optional[str]:
             key = _read_key_from_file(_config_path('smm_kings_api_key.txt'))
         elif prov == 'mysocialsboost':
             key = _read_key_from_file(_config_path('mysocialsboost_api_key.txt'))
+        elif prov == 'morethanpanel':
+            key = _read_key_from_file(_config_path('morethanpanel_api_key.txt'))
 
     # 3) Render Secret Files fallback (/etc/secrets/*.txt)
     if not key:
@@ -85,6 +98,8 @@ def get_api_key(provider: str) -> Optional[str]:
             key = _read_key_from_file(_secrets_path('smm_kings_api_key.txt'))
         elif prov == 'mysocialsboost':
             key = _read_key_from_file(_secrets_path('mysocialsboost_api_key.txt'))
+        elif prov == 'morethanpanel':
+            key = _read_key_from_file(_secrets_path('morethanpanel_api_key.txt'))
 
     _KEY_CACHE[prov] = key
     return key

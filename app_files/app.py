@@ -30,6 +30,7 @@ import zipfile
 # --- App and Scheduler Configuration ---
 class Config:
     SCHEDULER_API_ENABLED = True # Optional: enables a default scheduler UI at /scheduler
+    TEMPLATES_AUTO_RELOAD = True  # Reload templates on every request (dev convenience)
     # Optional: Configure job defaults if needed
     # SCHEDULER_JOB_DEFAULTS = {
     #     'coalesce': False,
@@ -713,7 +714,7 @@ def get_all_balances():
     results = {}
     ok = True
     errors = {}
-    for prov in ['justanotherpanel', 'peakerr', 'smmkings', 'mysocialsboost']:
+    for prov in ['justanotherpanel', 'peakerr', 'smmkings', 'mysocialsboost', 'morethanpanel']:
         try:
             results[prov] = providers_api.get_balance(prov)
         except Exception as e:
@@ -1106,11 +1107,50 @@ def estimate_auto_cost():
                 'cost': None if cost is None else round(cost, 6)
             })
 
+    # Calculate per-provider cost totals
+    provider_costs = {}
+    all_providers = ['justanotherpanel', 'peakerr', 'smmkings', 'mysocialsboost', 'morethanpanel']
+    
+    for provider in all_providers:
+        provider_total = 0.0
+        for loop_num in range(1, main_loops + 1):
+            for eng in engagements:
+                eng_type = (eng.get('type') or '').strip()
+                if not eng_type:
+                    continue
+                participation_loops = int(eng.get('loops') or 1)
+                if loop_num > participation_loops:
+                    continue
+                platform = (eng.get('platform') or '').strip() or 'Instagram'
+                if platform_filter and platform != platform_filter:
+                    continue
+                qty = expected_qty(eng)
+                if qty <= 0:
+                    continue
+                # Get services for this platform/engagement and find one from this provider
+                services = sc.list_services(platform, eng_type)
+                provider_svc = None
+                for s in services:
+                    p = (s.get('provider') or s.get('provider_label') or '').lower().replace(' ', '')
+                    if p == provider or p == provider.replace(' ', ''):
+                        provider_svc = s
+                        break
+                if provider_svc:
+                    rate = provider_svc.get('rate_per_1k')
+                    try:
+                        rate_f = float(rate) if rate is not None else None
+                    except Exception:
+                        rate_f = None
+                    if rate_f is not None:
+                        provider_total += (rate_f * qty / 1000.0)
+        provider_costs[provider] = round(provider_total, 6) if provider_total > 0 else None
+
     return jsonify({
         'success': True,
         'total_cost': round(total_cost, 6),
         'breakdown': breakdown,
-        'loops': main_loops
+        'loops': main_loops,
+        'provider_costs': provider_costs
     })
 
 # --- API Route to check job status --- (Used by Run page for manual/profile promos)

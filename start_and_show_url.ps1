@@ -8,6 +8,7 @@ Write-Host "Project Directory: $scriptDir"
 $venvPath = Join-Path $scriptDir ".venv"
 $ngrokExePath = Join-Path $scriptDir "ngrok.exe"
 $pythonExePath = Join-Path (Join-Path $venvPath "Scripts") "python.exe"
+$appFilesDir = Join-Path $scriptDir "app_files"
 $waitressPort = 5000
 # --- End Configuration ---
 
@@ -32,7 +33,7 @@ if (-not (Test-Path $ngrokExePath)) {
 Write-Host "Starting Waitress server in the background..."
 # Start Waitress using the virtual environment's python
 $waitressArgs = "-m waitress --host=0.0.0.0 --port=$waitressPort app:app"
-$waitressProcess = Start-Process -FilePath $pythonExePath -ArgumentList $waitressArgs -WorkingDirectory $scriptDir -NoNewWindow -PassThru
+$waitressProcess = Start-Process -FilePath $pythonExePath -ArgumentList $waitressArgs -WorkingDirectory $appFilesDir -NoNewWindow -PassThru
 if (-not $waitressProcess) {
      Write-Error "Failed to start Waitress process."
      Read-Host "Press Enter to exit"

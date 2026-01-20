@@ -1,0 +1,26 @@
+# Ignore Python virtual environment
+.venv/
+
+# Ignore sensitive credentials file
+.env
+credentials.json
+token.pickle
+
+# Ignore bytecode files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+
+# Ignore IDE files
+.cursor/
+.vscode/
+
+# Ignore ngrok executable
+ngrok.exe
+
+# Ignore session data
+app_files/dogehype_session/

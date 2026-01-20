@@ -67,6 +67,8 @@ def _normalize_provider(p: str) -> str:
     pr = p.replace(' ', '').lower()
     if pr == 'mysocialsboost':
         return 'mysocialsboost'
+    if pr in ('morethanpanel', 'morethan panel', 'mtp'):
+        return 'morethanpanel'
     return pr
 
 

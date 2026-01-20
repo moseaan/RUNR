@@ -49,6 +49,7 @@
         if (lc === 'justanotherpanel') return 'JustAnotherPanel';
         if (lc === 'peakerr') return 'Peakerr';
         if (lc === 'mysocialsboost') return 'MySocialsBoost';
+        if (lc === 'morethanpanel') return 'MoreThanPanel';
         return s;
     }
 
@@ -58,6 +59,7 @@
         if (lc === 'smmk' || lc === 'smmkings' || lc === 'smm' || lc === 'smmkingscom') return 'smmkings';
         if (lc === 'justanotherpanel' || lc === 'jap' || lc === 'justanother') return 'justanotherpanel';
         if (lc === 'peakerr' || lc === 'peakar' || lc === 'pekerr') return 'peakerr';
+        if (lc === 'morethanpanel' || lc === 'mtp' || lc === 'morethan') return 'morethanpanel';
         return lc; // default to normalized id
     }
 
@@ -174,7 +176,8 @@
                         { value: 'justanotherpanel', label: 'JustAnotherPanel' },
                         { value: 'peakerr', label: 'Peakerr' },
                         { value: 'smmkings', label: 'SMM Kings' },
-                        { value: 'mysocialsboost', label: 'MySocialsBoost' }
+                        { value: 'mysocialsboost', label: 'MySocialsBoost' },
+                        { value: 'morethanpanel', label: 'MoreThanPanel' }
                     ];
                     allProviders.forEach(prov => {
                         const opt = document.createElement('option');

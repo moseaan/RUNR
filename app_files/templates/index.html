@@ -101,7 +101,150 @@
              </div>
             <div class="mt-2">
                 <div id="auto-cost-display" class="small text-info"></div>
+                <div id="provider-cost-display" class="small text-info" style="margin-top: 12px;"></div>
             </div>
+            <script>
+            // Provider cost breakdown display - shows min-max cost ranges per provider
+            (function() {
+                const providerLabels = {
+                    'justanotherpanel': 'JustAnotherPanel',
+                    'peakerr': 'Peakerr',
+                    'smmkings': 'SMMKings',
+                    'mysocialsboost': 'MySocialsBoost',
+                    'morethanpanel': 'MoreThanPanel'
+                };
+                
+                function formatCurrency(val, digits = 6) {
+                    if (val == null || isNaN(val)) return '-';
+                    try { return `$${Number(val).toFixed(digits)}`; } catch { return '-'; }
+                }
+                
+                async function updateProviderCosts() {
+                    console.log('[Provider Cost Debug] updateProviderCosts() called');
+                    const profileSelect = document.getElementById('profile-select-promo');
+                    const display = document.getElementById('provider-cost-display');
+                    console.log('[Provider Cost Debug] profileSelect:', profileSelect, 'display:', display);
+                    if (!profileSelect || !display) return;
+                    
+                    const profileName = profileSelect.value;
+                    console.log('[Provider Cost Debug] profileName:', profileName);
+                    if (!profileName) { display.innerHTML = ''; return; }
+                    
+                    try {
+                        // Fetch profile data - API returns profiles object directly
+                        const profileRes = await fetch('/api/profiles');
+                        const profiles = await profileRes.json();
+                        if (!profiles || !profiles[profileName]) {
+                            display.innerHTML = '';
+                            return;
+                        }
+                        
+                        // Fetch service overrides
+                        const ovRes = await fetch('/api/services/overrides');
+                        const ovData = await ovRes.json();
+                        const overrides = ovData.success ? (ovData.overrides || {}) : {};
+                        
+                        console.log('[Provider Cost Debug] Overrides loaded:', Object.keys(overrides));
+                        
+                        const profile = profiles[profileName];
+                        const engagements = profile.engagements || [];
+                        
+                        console.log('[Provider Cost Debug] Profile engagements:', engagements.map(e => `${e.platform}/${e.type}`));
+                        
+                        // Track min and max costs per provider separately
+                        const providerCosts = {}; // { providerKey: { min: 0, max: 0, label: '' } }
+                        
+                        // Helper for case-insensitive key lookup
+                        function findKey(obj, searchKey) {
+                            if (!obj || !searchKey) return null;
+                            const lowerSearch = searchKey.toLowerCase();
+                            for (const key of Object.keys(obj)) {
+                                if (key.toLowerCase() === lowerSearch) return key;
+                            }
+                            return null;
+                        }
+                        
+                        for (const eng of engagements) {
+                            const platform = (eng.platform || 'Instagram').trim();
+                            const engType = (eng.type || '').trim();
+                            const loops = parseInt(eng.loops) || 1;
+                            
+                            // Calculate min and max quantities
+                            let minTotalQty, maxTotalQty;
+                            if (eng.use_random_quantity) {
+                                const minQ = parseInt(eng.min_quantity) || 0;
+                                const maxQ = parseInt(eng.max_quantity) || 0;
+                                minTotalQty = minQ * loops;
+                                maxTotalQty = maxQ * loops;
+                            } else {
+                                const fixedQty = parseInt(eng.fixed_quantity) || 0;
+                                minTotalQty = maxTotalQty = fixedQty * loops;
+                            }
+                            
+                            // Skip if no quantity
+                            if (minTotalQty === 0 && maxTotalQty === 0) continue;
+                            
+                            // Find override for this platform/engagement (case-insensitive)
+                            const platformKey = findKey(overrides, platform);
+                            const platformOverrides = platformKey ? overrides[platformKey] : null;
+                            const engKey = platformOverrides ? findKey(platformOverrides, engType) : null;
+                            const ov = engKey ? platformOverrides[engKey] : null;
+                            
+                            console.log(`[Provider Cost Debug] ${platform}/${engType}: platformKey=${platformKey}, engKey=${engKey}, ov=`, ov);
+                            
+                            if (ov && ov.provider && ov.rate_per_1k != null) {
+                                const pk = ov.provider.toLowerCase().replace(/\s+/g, '');
+                                const rate = parseFloat(ov.rate_per_1k) || 0;
+                                const minCost = (rate * minTotalQty) / 1000;
+                                const maxCost = (rate * maxTotalQty) / 1000;
+                                
+                                if (!providerCosts[pk]) {
+                                    providerCosts[pk] = { min: 0, max: 0, label: ov.provider_label || ov.provider };
+                                }
+                                providerCosts[pk].min += minCost;
+                                providerCosts[pk].max += maxCost;
+                            }
+                        }
+                        
+                        // Filter out providers with zero cost
+                        const provKeys = Object.keys(providerCosts).filter(k => providerCosts[k].max > 0);
+                        
+                        if (provKeys.length > 0) {
+                            let html = '<strong>Cost Breakdown by Provider</strong><br>';
+                            for (const pk of provKeys) {
+                                const prov = providerCosts[pk];
+                                const label = providerLabels[pk] || prov.label || pk;
+                                if (prov.min === prov.max) {
+                                    html += `${label}: ${formatCurrency(prov.min)}<br>`;
+                                } else {
+                                    html += `${label}: ${formatCurrency(prov.min)} - ${formatCurrency(prov.max)}<br>`;
+                                }
+                            }
+                            display.innerHTML = html;
+                        } else if (engagements.length > 0) {
+                            display.innerHTML = '<span class="text-info">No providers selected</span>';
+                        } else {
+                            display.innerHTML = '';
+                        }
+                    } catch (e) {
+                        console.error('Error calculating provider costs:', e);
+                        display.innerHTML = '';
+                    }
+                }
+                
+                // Expose function globally for external triggers (e.g., Services tab changes)
+                window.updateProviderCostBreakdown = updateProviderCosts;
+                
+                // Run on profile change and initial load
+                document.addEventListener('DOMContentLoaded', () => {
+                    const profileSelect = document.getElementById('profile-select-promo');
+                    if (profileSelect) {
+                        profileSelect.addEventListener('change', updateProviderCosts);
+                        setTimeout(updateProviderCosts, 1000);
+                    }
+                });
+            })();
+            </script>
             <hr>
             <div>
                 <h6 class="mb-2 text-white">Active Auto Promos</h6>

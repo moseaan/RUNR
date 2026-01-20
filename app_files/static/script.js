@@ -2040,6 +2040,11 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
             costDisplay.textContent = '';
         }
+        
+        // Also update provider cost breakdown if available
+        if (typeof window.updateProviderCostBreakdown === 'function') {
+            window.updateProviderCostBreakdown();
+        }
     }
 
     // --- Single Promo Page Specific Initialization (ensure CSV-backed platforms incl. Spotify) ---
