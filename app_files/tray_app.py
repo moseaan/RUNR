@@ -24,7 +24,7 @@ except ImportError:
 # Configuration
 DEFAULT_PORT = 4000
 APP_NAME = "RUNR"
-ICON_PATH = os.path.join(APP_DIR, "static", "favicon.png")
+ICON_PATH = os.path.join(APP_DIR, "static", "logo.png")
 
 
 def get_icon_image():
