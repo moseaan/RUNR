@@ -1,49 +1,83 @@
-/* Basic CSS styling - will be added later */
+/* Black Minimalistic Style */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+
 :root {
-    --bg-color: #1a1d21; /* Very dark background */
-    --card-bg-color: #2c3035; /* Slightly lighter card background */
-    --text-color: #e1e1e1; /* Light gray text */
-    --heading-color: #ffffff; /* White headings */
-    --border-color: #40454a; /* Subtle border */
-    --accent-color: #007bff; /* Primary blue */
-    --accent-hover-color: #0056b3;
-    --secondary-color: #6c757d; /* Gray for secondary buttons */
-    --secondary-hover-color: #5a6268;
-    --danger-color: #dc3545; /* Red */
-    --danger-hover-color: #c82333;
-    --success-color: #28a745; /* Green */
-    --warning-color: #ffc107; /* Yellow */
-    --input-bg-color: #3a3f44;
-    --input-focus-border: var(--accent-color);
-    --modal-overlay-color: rgba(0, 0, 0, 0.7);
+    --bg-color: #0a0a0a;
+    --bg-secondary: #0d0d0d;
+    --bg-tertiary: #111;
+    --card-bg-color: #0d0d0d;
+    --text-color: #e5e5e5;
+    --text-muted: #666;
+    --text-dim: #555;
+    --text-darker: #444;
+    --text-darkest: #333;
+    --heading-color: #ffffff;
+    --border-color: #1a1a1a;
+    --border-light: #222;
+    --border-medium: #333;
+    --accent-color: #fff;
+    --accent-hover-color: #e5e5e5;
+    --secondary-color: #333;
+    --secondary-hover-color: #444;
+    --danger-color: #a44;
+    --danger-hover-color: #c55;
+    --success-color: #4a4;
+    --warning-color: #c90;
+    --input-bg-color: #111;
+    --input-focus-border: #444;
+    --modal-overlay-color: rgba(0, 0, 0, 0.85);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
 }
 
 body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     margin: 0;
-    padding: 20px;
+    padding: 0;
     background-color: var(--bg-color);
     color: var(--text-color);
-    line-height: 1.6;
+    line-height: 1.5;
+    min-height: 100vh;
 }
 
-h1, h2, h3 {
+h1, h2, h3, h4, h5, h6 {
     color: var(--heading-color);
     margin-top: 0;
+    font-weight: 500;
+    letter-spacing: 0.05em;
 }
 
 h2 {
+    font-size: 16px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
     border-bottom: 1px solid var(--border-color);
-    padding-bottom: 10px;
-    margin-bottom: 20px;
+    padding-bottom: 12px;
+    margin-bottom: 24px;
+}
+
+h3, h4, h5, h6 {
+    font-size: 13px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
 
 .container {
-    background-color: var(--card-bg-color);
-    padding: 20px 25px;
-    margin-bottom: 25px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    background-color: transparent;
+    padding: 24px;
+    margin-bottom: 0;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.container.mt-4 {
+    margin-top: 0 !important;
+    padding-top: 24px;
 }
 
 /* Remove general .form-group margin, Bootstrap grid gap handles spacing */
@@ -63,117 +97,227 @@ label {
 }
 */
 
-/* Apply theme colors to Bootstrap form elements */
+/* Form Controls - Minimalistic Style */
 .form-control,
-.form-select {
-    border: 1px solid var(--border-color); 
-    background-color: var(--input-bg-color); /* Use theme variable */
-    color: var(--text-color); /* Use theme variable */
-    /* Inherit other properties like padding, font-size, border-radius from Bootstrap */
-    /* Add transition for consistency */
-    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+.form-select,
+input[type="text"],
+input[type="number"],
+input[type="email"],
+input[type="password"],
+input[type="url"],
+textarea,
+select {
+    background: var(--input-bg-color);
+    border: 1px solid var(--border-light);
+    color: var(--text-color);
+    padding: 10px 12px;
+    font-family: inherit;
+    font-size: 13px;
+    border-radius: 0;
+    transition: border-color 0.2s;
+    width: 100%;
 }
 
-/* Override Bootstrap's default focus style to match theme */
 .form-control:focus,
-.form-select:focus {
+.form-select:focus,
+input:focus,
+textarea:focus,
+select:focus {
+    outline: none;
     border-color: var(--input-focus-border);
-    box-shadow: 0 0 0 0.25rem rgba(0, 123, 255, 0.25); /* Match BS focus shadow color */
-    /* Keep background and text color on focus */
+    box-shadow: none;
     background-color: var(--input-bg-color);
-    color: var(--text-color); 
+    color: var(--text-color);
 }
 
-/* Style the dropdown arrow for selects (might need vendor prefixes) */
+.form-control::placeholder,
+input::placeholder,
+textarea::placeholder {
+    color: var(--text-darker);
+}
+
+/* Select dropdown styling */
 .form-select {
-    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23e1e1e1' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e"); /* Use text-color for arrow */
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23666' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e");
     background-repeat: no-repeat;
-    background-position: right .75rem center;
-    background-size: 16px 12px;
+    background-position: right 12px center;
+    background-size: 12px 10px;
+    padding-right: 36px;
+    cursor: pointer;
 }
 
-/* Style disabled/readonly fields for dark theme */
+/* Disabled/readonly fields */
 .form-control:disabled,
 .form-control[readonly],
-.form-select:disabled {
-    background-color: #343a40; /* EVEN Darker gray background */
-    border-color: var(--border-color); /* Keep border consistent */
-    color: #aaa; /* Dimmer text color */
-    opacity: 0.7; /* Slightly reduced opacity */
-}
-
-/* Keep basic button styles - Bootstrap will add more */
-button {
-    padding: 10px 18px;
-    border: none;
-    border-radius: 5px;
-    /* background-color: var(--accent-color); Let Bootstrap handle default */
-    /* color: white; Let Bootstrap handle */
-    cursor: pointer;
-    margin-right: 8px;
-    font-weight: 600;
-    transition: background-color 0.2s ease-in-out, transform 0.1s ease;
-}
-
-/* Keep button hover/active/disabled states */
-button:hover:not(:disabled) {
-    background-color: var(--accent-hover-color);
-    transform: translateY(-1px); /* Slight lift on hover */
-}
-
-button:active:not(:disabled) {
-    transform: translateY(0px); /* Press down effect */
-}
-
-button:disabled {
-    background-color: var(--secondary-color);
-    opacity: 0.7;
+.form-select:disabled,
+input:disabled,
+select:disabled {
+    background-color: #0d0d0d;
+    border-color: var(--border-color);
+    color: var(--text-dim);
+    opacity: 0.6;
     cursor: not-allowed;
 }
 
-/* Keep specific ID button colors */
-#delete-profile-btn { /* Use .btn-danger class instead? */
-    background-color: var(--danger-color);
+/* Form labels */
+.form-label,
+label {
+    display: block;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    text-transform: uppercase;
 }
-#delete-profile-btn:hover:not(:disabled) {
-    background-color: var(--danger-hover-color);
+
+/* Button Styles - Minimalistic */
+button,
+.btn {
+    background: transparent;
+    border: 1px solid var(--border-medium);
+    color: var(--text-muted);
+    padding: 10px 16px;
+    font-family: inherit;
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    border-radius: 0;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-transform: uppercase;
 }
-#cancel-modal-btn { /* Use .btn-secondary class instead? */
-    background-color: var(--secondary-color);
+
+button:hover:not(:disabled),
+.btn:hover:not(:disabled) {
+    border-color: var(--text-dim);
+    color: var(--text-color);
+    background: transparent;
+    transform: none;
 }
-#cancel-modal-btn:hover:not(:disabled) {
-    background-color: var(--secondary-hover-color);
+
+button:disabled,
+.btn:disabled {
+    background: var(--border-medium);
+    color: var(--text-muted);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+/* Primary button - white filled */
+.btn-primary {
+    background: #fff;
+    color: #000;
+    border-color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+    background: var(--text-color);
+    border-color: var(--text-color);
+    color: #000;
+}
+
+.btn-primary:disabled {
+    background: var(--border-medium);
+    border-color: var(--border-medium);
+    color: var(--text-muted);
+}
+
+/* Success button */
+.btn-success,
+.btn-outline-success {
+    background: transparent;
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+
+.btn-success:hover:not(:disabled),
+.btn-outline-success:hover:not(:disabled) {
+    background: var(--success-color);
+    border-color: var(--success-color);
+    color: #000;
+}
+
+/* Danger button */
+.btn-danger {
+    background: transparent;
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+}
+
+.btn-danger:hover:not(:disabled) {
+    background: var(--danger-color);
+    border-color: var(--danger-color);
+    color: #fff;
+}
+
+/* Secondary button */
+.btn-secondary,
+.btn-outline-secondary {
+    background: transparent;
+    border-color: var(--border-medium);
+    color: var(--text-muted);
+}
+
+.btn-secondary:hover:not(:disabled),
+.btn-outline-secondary:hover:not(:disabled) {
+    border-color: var(--text-dim);
+    color: var(--text-color);
+    background: transparent;
+}
+
+/* Outline primary */
+.btn-outline-primary {
+    background: transparent;
+    border-color: var(--border-medium);
+    color: var(--text-color);
+}
+
+.btn-outline-primary:hover:not(:disabled) {
+    background: #fff;
+    border-color: #fff;
+    color: #000;
+}
+
+/* Small buttons */
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 10px;
+}
+
+/* Button sizing */
+.btn.w-100 {
+    width: 100%;
 }
 
 /* Status Text Styles */
 #status-text {
-    font-size: 1.1em;
-    font-weight: 600;
-    margin-bottom: 15px; /* Adjusted margin */
-    padding: 5px 0;
-    text-align: center; /* Center align the status */
-    color: var(--text-color); /* Default color */
-    height: 1.5em; /* Prevent layout shift */
-    /* Add transition for smoother color changes */
+    font-size: 11px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    margin-bottom: 16px;
+    padding: 8px 0;
+    text-align: center;
+    color: var(--text-dim);
+    min-height: 1.5em;
     transition: color 0.3s ease;
 }
 
 #status-text.status-ready {
-    color: var(--success-color); /* Green for ready/success */
+    color: var(--success-color);
 }
 
 #status-text.status-initializing,
 #status-text.status-info {
-    color: var(--text-color); /* Default color for info */
+    color: var(--text-dim);
 }
 
-#status-text.status-running, /* Add running state if needed by polling */
+#status-text.status-running,
 #status-text.status-warning {
-    color: var(--warning-color); /* Yellow for warning/running */
+    color: var(--warning-color);
 }
 
 #status-text.status-error {
-    color: var(--danger-color); /* Red for error */
+    color: var(--danger-color);
 }
 
 /* Toast Notification Styles */
@@ -188,17 +332,19 @@ button:disabled {
 }
 
 .toast {
-    background-color: rgba(44, 48, 53, 0.95); /* Slightly transparent dark bg */
+    background-color: var(--bg-secondary);
     color: var(--text-color);
-    padding: 15px 20px;
-    border-radius: 6px;
-    box-shadow: 0 3px 10px rgba(0,0,0,0.3);
-    border-left: 5px solid var(--secondary-color); /* Default border */
+    padding: 12px 16px;
+    border-radius: 0;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    border-left: 3px solid var(--border-medium);
     min-width: 250px;
     max-width: 350px;
     opacity: 0;
     transform: translateX(100%);
-    transition: opacity 0.5s ease, transform 0.5s ease;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    font-size: 12px;
+    letter-spacing: 0.02em;
 }
 
 .toast.show {
@@ -216,61 +362,74 @@ button:disabled {
 
 .toast.fade-out {
     opacity: 0;
-    transform: translateX(50px); /* Move slightly right on fade out */
+    transform: translateX(50px);
 }
 
 /* Modal Styles */
 .modal {
-    display: none; /* Hide by default */
-    opacity: 0; /* Start transparent for fade-in */
-    transition: opacity 0.3s ease-in-out; /* Transition opacity */
-    position: fixed; /* Stay in place */
-    z-index: 1000; /* Sit on top */
+    display: none;
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+    position: fixed;
+    z-index: 1000;
     left: 0;
     top: 0;
-    width: 100%; /* Full width */
-    height: 100%; /* Full height */
-    overflow: auto; /* Enable scroll if needed */
-    background-color: rgba(0,0,0,0.4); /* Black w/ opacity */
-    /* display: flex; <-- Moved to .is-visible */
-    justify-content: center; /* Center horizontally */
-    align-items: center; /* Center vertically */
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: var(--modal-overlay-color);
+    justify-content: center;
+    align-items: center;
 }
 
 .modal.is-visible {
-    display: flex; /* Show using flex */
-    opacity: 1; /* Fade to opaque */
+    display: flex;
+    opacity: 1;
 }
 
 .modal-content {
-    background-color: var(--card-bg-color); /* Use theme variable */
-    padding: 20px;
+    background-color: var(--bg-secondary);
+    padding: 24px;
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    position: relative; /* For close button positioning */
-    width: 90%; /* Use percentage for better responsiveness */
-    max-width: 1100px; /* INCREASED max-width significantly */
-    /* Ensure it doesn't shrink if content is small */
+    border-radius: 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.6);
+    position: relative;
+    width: 90%;
+    max-width: 1100px;
     flex-shrink: 0;
-     /* Allow internal scrolling if content overflows */
-    max-height: 90vh; 
-    overflow-y: auto; 
+    max-height: 90vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-medium) transparent;
+}
+
+.modal-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.modal-content::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-content::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
 }
 
 .close-btn {
-    color: var(--text-secondary);
+    color: var(--text-dim);
     position: absolute;
-    top: 10px;
-    right: 15px;
-    font-size: 28px;
-    font-weight: bold;
+    top: 16px;
+    right: 20px;
+    font-size: 24px;
+    font-weight: 300;
     cursor: pointer;
+    transition: color 0.2s;
+    line-height: 1;
 }
 
 .close-btn:hover,
 .close-btn:focus {
-    color: var(--text-primary);
+    color: var(--text-color);
     text-decoration: none;
 }
 
@@ -462,48 +621,62 @@ button:disabled {
 
 /* Navigation Styles */
 .main-nav {
-    background-color: var(--card-bg-color);
-    padding: 10px 30px;
+    background-color: var(--bg-color);
+    padding: 16px 32px;
     display: flex;
     align-items: center;
-    justify-content: space-between; /* Push brand left, links right */
-    margin-bottom: 20px; /* Reduced margin */
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border-color);
+    box-shadow: none;
 }
 
 .nav-brand {
-    font-size: 1.5em;
-    font-weight: bold;
-    color: var(--heading-color);
-    /* margin-right: auto; REMOVE - justify-content handles spacing */
+    font-size: 16px;
+    font-weight: 500;
+    letter-spacing: 0.4em;
+    color: #fff;
+}
+
+.nav-brand a {
+    color: inherit;
+    text-decoration: none;
 }
 
 .nav-links {
-    display: flex; /* Ensure links stay in a row */
-    gap: 20px; /* Add gap between links */
+    display: flex;
+    gap: 24px;
 }
 
 .nav-links a {
-    color: var(--text-color);
+    color: var(--text-muted);
     text-decoration: none;
-    margin-left: 0; /* Remove specific margin */
-    font-size: 1.1em;
-    padding: 5px 0;
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    padding: 6px 0;
     transition: color 0.2s ease;
-    border-bottom: 2px solid transparent; 
+    border-bottom: none;
+    text-transform: uppercase;
 }
 
 .nav-links a:hover {
-    color: var(--accent-color); 
+    color: var(--text-color);
+}
+
+.nav-links a.active {
+    color: #fff;
 }
 
 /* Adjust main content wrapper/area padding */
 .main-content-wrapper {
-    /* Add padding here if needed, instead of directly on main-content */
-     padding: 0 30px;
+    padding: 0 32px 32px 32px;
+    background-color: var(--bg-color);
+    min-height: calc(100vh - 53px);
 }
+
 .main-content {
-     padding: 0; /* Remove padding if handled by wrapper */
+    padding: 0;
+    max-width: 1400px;
+    margin: 0 auto;
 }
 
 /* Styles for username group on Profiles page */
@@ -544,174 +717,598 @@ button:disabled {
 #history-list table {
     width: 100%;
     border-collapse: collapse;
-    margin-top: 1em;
+    margin-top: 16px;
 }
 
 #history-list th, #history-list td {
-    border: 1px solid #444;
-    padding: 8px;
+    border: 1px solid var(--border-color);
+    padding: 12px;
     text-align: left;
-    vertical-align: top; /* Align content to top */
+    vertical-align: top;
 }
 
 #history-list th {
-    background-color: #333;
+    background-color: var(--bg-color);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
 
 #history-list tr:nth-child(even) {
-    background-color: #2a2a2a;
+    background-color: var(--bg-tertiary);
 }
 
 #history-list .status-success {
-    color: #4CAF50; /* Green */
-    font-weight: bold;
+    color: var(--success-color);
+    font-weight: 500;
 }
 
 #history-list .status-failed {
-    color: #f44336; /* Red */
-    font-weight: bold;
+    color: var(--danger-color);
+    font-weight: 500;
 }
 
 #history-list .message-cell {
-    max-width: 300px; /* Limit width of message */
-    word-wrap: break-word; /* Wrap long messages */
-    font-size: 0.9em;
-    color: #ccc; /* Lighter color for less emphasis */
+    max-width: 300px;
+    word-wrap: break-word;
+    font-size: 11px;
+    color: var(--text-dim);
 }
 
 #history-list td a {
-    color: #64b5f6; /* Light blue for links */
+    color: var(--text-color);
     text-decoration: none;
 }
 
 #history-list td a:hover {
-    text-decoration: underline;
+    color: #fff;
+}
+
+/* History table cell containment */
+#history-list table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+#history-list th,
+#history-list td {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    vertical-align: top;
+    max-width: 0;
+}
+
+#history-list th:nth-child(1),
+#history-list td:nth-child(1) { width: 12%; } /* Timestamp */
+#history-list th:nth-child(2),
+#history-list td:nth-child(2) { width: 10%; } /* Type */
+#history-list th:nth-child(3),
+#history-list td:nth-child(3) { width: 30%; } /* Details */
+#history-list th:nth-child(4),
+#history-list td:nth-child(4) { width: 12%; } /* Status */
+#history-list th:nth-child(5),
+#history-list td:nth-child(5) { width: 18%; } /* Message */
+#history-list th:nth-child(6),
+#history-list td:nth-child(6) { width: 8%; } /* Duration */
+#history-list th:nth-child(7),
+#history-list td:nth-child(7) { width: 10%; } /* Cost */
+
+#history-list .orders-section {
+    margin-top: 8px;
+    padding: 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+}
+
+#history-list .order-item {
+    margin-bottom: 4px;
+    word-break: break-all;
+}
+
+#history-list .order-status-fields {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    font-size: 11px;
 }
 
 /* Add other styles as needed */ 
 
+/* --- Hamburger Menu --- */
+.nav-toggle {
+    display: none;
+    background: transparent;
+    border: none;
+    padding: 8px;
+    cursor: pointer;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.hamburger-line {
+    display: block;
+    width: 20px;
+    height: 2px;
+    background: var(--text-color);
+    transition: all 0.3s;
+}
+
+.nav-toggle.active .hamburger-line:nth-child(1) {
+    transform: rotate(45deg) translate(4px, 4px);
+}
+
+.nav-toggle.active .hamburger-line:nth-child(2) {
+    opacity: 0;
+}
+
+.nav-toggle.active .hamburger-line:nth-child(3) {
+    transform: rotate(-45deg) translate(4px, -4px);
+}
+
+/* --- Page Header Layout --- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 0;
+    padding: 16px 0;
+    gap: 16px;
+}
+
+.page-header h2 {
+    border-bottom: none;
+    padding: 0;
+    margin: 0;
+    flex-shrink: 0;
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.page-header-buttons {
+    display: flex;
+    gap: 8px;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+/* Standardize container spacing */
+.container.mt-4 {
+    margin-top: 0 !important;
+    padding-top: 0;
+}
+
+/* --- Force Portrait Only --- */
+@media screen and (orientation: landscape) and (max-height: 500px) {
+    body::before {
+        content: "Please rotate your device to portrait mode";
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--bg-color);
+        color: var(--text-color);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        font-size: 14px;
+        text-align: center;
+        padding: 20px;
+    }
+}
+
 /* --- Responsive Styles --- */
 @media screen and (max-width: 768px) {
     body {
-        padding: 10px; /* Reduce padding on smaller screens */
+        padding: 0;
+    }
+
+    /* Hamburger Menu Mobile */
+    .nav-toggle {
+        display: flex;
     }
 
     .main-nav {
-        padding: 10px 15px;
-        flex-wrap: wrap; /* Allow nav items to wrap */
-        justify-content: space-between; /* Space out brand and links */
+        padding: 12px 16px;
+        flex-wrap: wrap;
+        position: relative;
     }
+
     .nav-brand {
-        margin-right: 15px; /* Add some space to the right */
+        font-size: 14px;
+        letter-spacing: 0.3em;
     }
+
     .nav-links {
-        flex-basis: auto; 
-        display: flex; /* Ensure flex is active */
-        justify-content: flex-end; /* Align links to the right */
-        flex-grow: 1; /* Allow links container to grow */
-        gap: 15px; /* Adjust gap for horizontal layout */
+        display: none;
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--bg-color);
+        border-bottom: 1px solid var(--border-color);
+        flex-direction: column;
+        padding: 16px;
+        gap: 0;
+        z-index: 100;
     }
+
+    .nav-links.active {
+        display: flex;
+    }
+
     .nav-links a {
-        margin-left: 0; /* Keep left margin removed for this layout */
-        padding: 5px 0; 
-        flex-shrink: 0; /* Prevent links from shrinking too much */
+        font-size: 12px;
+        padding: 12px 0;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .nav-links a:last-child {
+        border-bottom: none;
+    }
+
+    .main-content-wrapper {
+        padding: 16px;
     }
 
     .main-content {
-        padding: 0 10px; /* Match body padding */
+        padding: 0;
     }
 
     .container {
-        padding: 15px;
+        padding: 0;
     }
 
-    /* Properly comment out responsive Form Adjustments */
-    /*
-    .single-promo-grid, 
-    .auto-promo-section {
-        display: flex; 
-        flex-direction: column;
-        gap: 15px;
+    /* Page Headers - keep title and buttons on same line */
+    .page-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
     }
-    .single-promo-grid .span-2 {
-        grid-column: auto; 
-    }
-    .auto-promo-section .form-group {
-        flex-basis: auto; 
-        width: 100%; 
-        box-sizing: border-box; 
-    }
-    .single-promo-button-container {
-         text-align: center; 
-         margin-top: 10px;
-         width: 100%; 
-    }
-    .auto-promo-button-container {
-         text-align: left; 
-         margin-top: 10px;
-         width: 100%; 
-    }
-    .auto-promo-button-container {
-         padding-bottom: 0; 
-    }
-    */
 
-    /* --- Profile Page Adjustments --- */
+    .page-header h2 {
+        font-size: 16px;
+        margin: 0;
+    }
+
+    .page-header-buttons {
+        flex-shrink: 0;
+        justify-content: flex-end;
+    }
+
+    .page-header-buttons .btn {
+        padding: 6px 10px;
+        font-size: 10px;
+    }
+
+    h2 {
+        border-bottom: none !important;
+        font-size: 14px;
+        margin-bottom: 16px;
+    }
+
+    /* Cards */
+    .card {
+        margin-bottom: 16px;
+        border-left: none;
+        border-right: none;
+        margin-left: -16px;
+        margin-right: -16px;
+        width: calc(100% + 32px);
+    }
+
+    .card-header {
+        padding: 12px 16px;
+    }
+
+    .card-body {
+        padding: 16px;
+    }
+
+    /* Profile Page */
     .profile-selection {
-        flex-direction: column; /* Stack elements */
-        align-items: stretch; /* Make items full width */
-    }
-     .profile-selection select {
-        width: 100%; /* Full width dropdown */
-    }
-    .profile-selection .button-group {
-        text-align: center; /* Center buttons */
-        margin-top: 10px;
-    }
-    .username-group {
-        flex-direction: column; /* Stack elements */
+        flex-direction: column;
         align-items: stretch;
-    }
-     .username-group input[type="text"] {
-        max-width: none; /* Allow full width */
+        gap: 12px;
     }
 
-    /* --- Modal Adjustments --- */
-    .modal-content {
-        max-width: 95%;
-        padding: 15px;
+    .profile-selection select {
+        width: 100%;
     }
-     /* Make modal engagement grid stack */
-    .engagement-header-row,
+
+    .profile-selection .button-group {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+
+    .profile-selection .button-group .btn {
+        flex: 1;
+        min-width: 80px;
+    }
+
+    /* Modal */
+    .modal-content {
+        width: 100%;
+        max-width: 100%;
+        max-height: 100vh;
+        margin: 0;
+        border-radius: 0;
+        padding: 16px;
+    }
+
+    /* Engagement Row in Modal - FIXED */
+    .engagement-row,
     #engagement-settings .engagement-row {
-        grid-template-columns: 1fr; /* Stack all columns */
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 12px;
+        margin-bottom: 12px;
+    }
+
+    .engagement-row > div,
+    #engagement-settings .engagement-row > div {
+        display: flex;
+        align-items: center;
         gap: 8px;
     }
-    /* Hide header text on mobile, rely on input placeholders/labels */
-    .engagement-header-row span {
-        display: none; 
-    }
-    /* Ensure labels are visible */
-    #engagement-settings .engagement-row label {
-         display: block; /* Make sure label is shown */
-         margin-bottom: 3px;
-    }
-    /* Align checkbox differently when stacked */
-    #engagement-settings .engagement-row .inline-cb {
-        margin-left: 0;
-        width: auto;
+
+    .engagement-row .form-check,
+    #engagement-settings .engagement-row .form-check {
+        margin: 0;
+        flex-shrink: 0;
     }
 
-    /* --- History Table --- */
+    .engagement-row input[type="number"],
+    #engagement-settings .engagement-row input[type="number"] {
+        width: 60px !important;
+        min-width: 60px;
+        flex-shrink: 0;
+    }
+
+    .engagement-row .btn,
+    #engagement-settings .engagement-row .btn {
+        padding: 6px 10px;
+        flex-shrink: 0;
+    }
+
+    .engagement-header-row {
+        display: none;
+    }
+
+    /* Balances Page */
+    #page-balances .table-responsive {
+        overflow-x: auto;
+    }
+
+    #page-balances table {
+        min-width: 500px;
+    }
+
+    #page-balances .form-control,
+    #page-balances .form-control-sm {
+        height: 36px !important;
+        padding: 6px 10px !important;
+    }
+
+    #page-balances .btn-sm {
+        height: 36px;
+        padding: 6px 12px;
+    }
+
+    #page-balances .d-flex.align-items-center {
+        flex-wrap: nowrap;
+    }
+
+    #page-balances input[type="number"] {
+        width: 70px !important;
+        min-width: 70px;
+    }
+
+    /* Monitor Page */
+    #page-monitor .table-responsive {
+        overflow-x: auto;
+    }
+
+    #page-monitor table {
+        min-width: 600px;
+    }
+
+    #page-monitor table td,
+    #page-monitor table th {
+        white-space: nowrap;
+        padding: 8px;
+    }
+
+    #page-monitor .btn-group,
+    #page-monitor td .btn {
+        white-space: nowrap;
+    }
+
+    #page-monitor td:last-child {
+        min-width: 150px;
+    }
+
+    #page-monitor td:last-child .btn {
+        display: inline-block;
+        margin: 2px;
+    }
+
+    /* Services Page */
+    #services-config-container .alert {
+        display: none;
+    }
+
+    #services-config-container .table-responsive {
+        overflow-x: auto;
+    }
+
+    #services-config-container table {
+        min-width: 500px;
+    }
+
+    #services-config-container .form-select,
+    #services-config-container .form-control {
+        min-width: 80px;
+        font-size: 11px;
+        padding: 6px 8px;
+    }
+
+    #services-config-container th,
+    #services-config-container td {
+        padding: 8px 6px;
+        font-size: 11px;
+    }
+
+    /* History Table */
     #history-list {
-        overflow-x: auto; /* Make table scrollable horizontally */
+        overflow-x: auto;
     }
+
     #history-list table {
-        min-width: 600px; /* Ensure table has min width before scrolling */
-        font-size: 0.9em; /* Slightly smaller font */
+        min-width: 600px;
+        font-size: 11px;
+        table-layout: fixed;
     }
+
     #history-list th, #history-list td {
-        padding: 6px;
+        padding: 8px;
+        white-space: normal;
+        word-wrap: break-word;
+        overflow-wrap: break-word;
+        vertical-align: top;
+    }
+
+    /* Buttons */
+    .btn {
+        padding: 8px 12px;
+        font-size: 11px;
+    }
+
+    .btn-sm {
+        padding: 6px 10px;
+        font-size: 10px;
+    }
+
+    /* Form controls */
+    .form-control,
+    .form-select {
+        font-size: 14px;
+        padding: 10px 12px;
+    }
+
+    /* Row adjustments */
+    .row {
+        --bs-gutter-x: 12px;
+        --bs-gutter-y: 12px;
+    }
+
+    .row > [class*="col-"] {
+        padding-left: 6px;
+        padding-right: 6px;
+    }
+
+    /* Ensure inputs aren't too small */
+    input[type="text"],
+    input[type="number"],
+    input[type="url"],
+    select {
+        min-height: 40px;
+    }
+
+    /* Fix engagement row display in modal */
+    #added-engagement-rows .engagement-row {
+        display: block !important;
+        padding: 12px;
+        background: var(--bg-tertiary);
+        border: 1px solid var(--border-color);
+        margin-bottom: 12px;
+    }
+
+    #added-engagement-rows .engagement-row > span:first-child {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 12px;
+        font-size: 13px;
+    }
+
+    #added-engagement-rows .engagement-row .form-check {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 12px;
+        margin-bottom: 8px;
+    }
+
+    #added-engagement-rows .engagement-row input[type="number"] {
+        width: 70px !important;
+        display: inline-block;
+        margin-right: 8px;
+        margin-bottom: 8px;
+    }
+
+    #added-engagement-rows .engagement-row .btn-danger {
+        margin-top: 8px;
+    }
+
+    /* Fix balances table layout */
+    #page-balances .table td,
+    #page-balances .table th {
+        vertical-align: middle;
+        padding: 12px 8px;
+    }
+
+    #page-balances .d-flex.gap-2 {
+        flex-wrap: nowrap;
+        align-items: center;
+    }
+
+    #page-balances input[type="number"] {
+        height: 36px !important;
+        min-height: 36px !important;
+        max-height: 36px !important;
+        width: 80px !important;
+    }
+
+    #page-balances .btn-sm {
+        height: 36px !important;
+        min-height: 36px !important;
+        padding: 0 12px !important;
+        line-height: 34px;
+    }
+
+    #page-balances .form-switch {
+        margin-bottom: 0;
+    }
+
+    /* Fix monitor table */
+    #page-monitor .table td {
+        vertical-align: middle;
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    #page-monitor .table td:last-child {
+        white-space: nowrap;
+    }
+
+    #page-monitor .table td:last-child .btn {
+        margin: 2px;
+        padding: 4px 8px;
+        font-size: 10px;
+    }
+
+    /* Services table wider inputs */
+    #services-config-container .form-select,
+    #services-config-container .form-control {
+        min-width: 70px;
     }
 } 
 
@@ -750,45 +1347,48 @@ button:disabled {
     margin-bottom: 0; /* Remove extra bottom margin */
 }
 
-/* Ensure card elements use theme background */
+/* Card Styles - Minimalistic */
 .card {
-    background-color: var(--card-bg-color); /* Use variable for card background */
-    border: 1px solid var(--border-color); /* Add border if desired */
-    margin-bottom: 1.5rem; /* Consistent spacing like Bootstrap */
-    border-radius: .375rem; /* Match BS border-radius */
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1); /* Subtle shadow */
-    /* Add other card styles as needed */
+    background-color: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    margin-bottom: 20px;
+    border-radius: 0;
+    box-shadow: none;
 }
 
 .card-header {
-    padding: .75rem 1.25rem; /* Adjust padding */
-    margin-bottom: 0; /* Remove bottom margin */
-    background-color: rgba(0,0,0,.06); /* Slightly different header background */
+    padding: 14px 20px;
+    margin-bottom: 0;
+    background-color: transparent;
     border-bottom: 1px solid var(--border-color);
-    border-top-left-radius: calc(.375rem - 1px);
-    border-top-right-radius: calc(.375rem - 1px);
-    font-weight: 600;
-    color: #ffffff; /* Make header text white */
+    border-radius: 0;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.card-header strong {
+    font-weight: 500;
+    color: var(--text-color);
 }
 
 .card-body {
-    padding: 1.25rem; /* Standard Bootstrap padding */
-     /* background-color should be inherited from .card or transparent */
-} 
-/* Make text within Promo page rows white */
-.card-body > .row label.form-label,
-.card-body > .row .form-control, /* Target text inside input */
-.card-body > .row .form-select  /* Target selected value text */
-{
-    color: #ffffff !important; /* Force white text */
+    padding: 20px;
+    background-color: transparent;
 }
 
-/* Ensure dropdown options have white text (might be handled by Bootstrap) */
-.card-body > .row .form-select option
-{
-    /* Background might need setting if dropdown menu is white */
-    /* background-color: var(--input-bg-color);  */
-    color: #ffffff;
+/* Card body text colors */
+.card-body > .row label.form-label,
+.card-body > .row .form-control,
+.card-body > .row .form-select {
+    color: var(--text-color) !important;
+}
+
+.card-body > .row .form-select option {
+    background-color: var(--bg-tertiary);
+    color: var(--text-color);
 }
 
 /* --- Services Flyout --- */
@@ -799,59 +1399,496 @@ button:disabled {
     max-width: 520px;
     max-height: 320px;
     overflow: auto;
-    background: var(--card-bg-color);
+    background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 6px;
-    box-shadow: 0 6px 16px rgba(0,0,0,.35);
-    padding: 10px;
+    border-radius: 0;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    padding: 12px;
 }
+
 .services-flyout h6 {
-    color: #fff;
-    margin: 0 0 8px 0;
+    color: var(--text-color);
+    margin: 0 0 10px 0;
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
+
 .services-flyout .service-item {
-    padding: 6px 8px;
-    border-bottom: 1px solid rgba(255,255,255,.08);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border-color);
     cursor: pointer;
+    transition: background 0.2s;
 }
+
 .services-flyout .service-item:last-child {
     border-bottom: none;
 }
-.services-flyout .service-title {
-    font-weight: 600;
-    color: #fff;
-}
-.services-flyout .service-meta {
-    font-size: .85em;
-    color: #ccc;
-}
-
-/* Custom engagement dropdown menu tweaks */
-.dropdown-menu.show {
-    display: block;
-    background: var(--card-bg-color);
-    border: 1px solid var(--border-color);
-}
-.dropdown-item {
-    color: var(--text-color);
-}
-.dropdown-item:hover,
-.dropdown-item.active {
-    background-color: rgba(0,123,255,0.2);
-}
 
 .services-flyout .service-item:hover {
-    background-color: rgba(0,123,255,0.15);
+    background-color: var(--bg-tertiary);
 }
 
+.services-flyout .service-title {
+    font-weight: 500;
+    color: var(--text-color);
+    font-size: 12px;
+}
 
-/* Style placeholders specifically */
+.services-flyout .service-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+/* Dropdown menu */
+.dropdown-menu {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 0;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+.dropdown-menu.show {
+    display: block;
+}
+
+.dropdown-item {
+    color: var(--text-color);
+    padding: 8px 16px;
+    font-size: 12px;
+    transition: background 0.2s;
+}
+
+.dropdown-item:hover,
+.dropdown-item:focus,
+.dropdown-item.active {
+    background-color: var(--bg-tertiary);
+    color: var(--text-color);
+}
+
+/* Placeholders */
 .card-body > .row .form-control::placeholder {
-    color: #cccccc !important; /* Slightly dimmer white for placeholder */
-    opacity: 1 !important; /* Override default opacity */
+    color: var(--text-darker) !important;
+    opacity: 1 !important;
 }
 
-/* Ensure button text is white (Bootstrap primary/success usually do this) */
-.card-body > .row .btn {
-   color: #ffffff !important;
+/* Tables - Minimalistic */
+.table {
+    color: var(--text-color);
+    border-color: var(--border-color);
+}
+
+.table-dark {
+    --bs-table-bg: var(--bg-secondary);
+    --bs-table-border-color: var(--border-color);
+    --bs-table-striped-bg: var(--bg-tertiary);
+    color: var(--text-color);
+}
+
+.table > thead {
+    border-bottom: 1px solid var(--border-color);
+}
+
+.table > thead th {
+    background: var(--bg-color);
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.table > tbody > tr > td {
+    padding: 12px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+}
+
+.table-bordered > :not(caption) > * > * {
+    border-color: var(--border-color);
+}
+
+.table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: var(--bg-tertiary);
+}
+
+/* Alerts - Minimalistic */
+.alert {
+    border-radius: 0;
+    border: 1px solid var(--border-color);
+    padding: 14px 18px;
+    font-size: 12px;
+    letter-spacing: 0.02em;
+}
+
+.alert-info {
+    background-color: var(--bg-secondary);
+    border-color: var(--border-light);
+    color: var(--text-color);
+}
+
+.alert-success {
+    background-color: rgba(68, 170, 68, 0.1);
+    border-color: var(--success-color);
+    color: var(--success-color);
+}
+
+.alert-danger {
+    background-color: rgba(170, 68, 68, 0.1);
+    border-color: var(--danger-color);
+    color: var(--danger-color);
+}
+
+.alert-warning {
+    background-color: rgba(204, 153, 0, 0.1);
+    border-color: var(--warning-color);
+    color: var(--warning-color);
+}
+
+/* Form Check/Switch - Minimalistic */
+.form-check-input {
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-medium);
+    border-radius: 0;
+}
+
+.form-check-input:checked {
+    background-color: #fff;
+    border-color: #fff;
+}
+
+.form-check-input:focus {
+    box-shadow: none;
+    border-color: var(--text-dim);
+}
+
+.form-check-label {
+    color: var(--text-color);
+    font-size: 12px;
+    text-transform: none;
+    letter-spacing: 0.02em;
+}
+
+.form-switch .form-check-input {
+    border-radius: 10px;
+}
+
+/* Text utilities */
+.text-info {
+    color: var(--text-dim) !important;
+}
+
+.text-white {
+    color: var(--text-color) !important;
+}
+
+.text-muted {
+    color: var(--text-muted) !important;
+}
+
+.text-body {
+    color: var(--text-color) !important;
+}
+
+.text-light {
+    color: var(--text-color) !important;
+}
+
+/* Small text */
+.small, small {
+    font-size: 11px;
+    color: var(--text-dim);
+}
+
+/* Horizontal rule */
+hr {
+    border-color: var(--border-color);
+    opacity: 1;
+    margin: 16px 0;
+}
+
+/* Links */
+a {
+    color: var(--text-color);
+    text-decoration: none;
+    transition: color 0.2s;
+}
+
+a:hover {
+    color: #fff;
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-medium);
+    border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-darker);
+}
+
+/* Firefox scrollbar */
+html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border-medium) transparent;
+}
+
+/* Bootstrap overrides */
+.border-top {
+    border-color: var(--border-color) !important;
+}
+
+/* Status area */
+.status-area {
+    text-align: center;
+    padding: 8px 0;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+}
+
+/* Engagement row styles */
+.engagement-row {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    padding: 16px;
+    margin-bottom: 12px;
+}
+
+.engagement-row:last-child {
+    margin-bottom: 0;
+}
+
+/* Table responsive */
+.table-responsive {
+    border: 1px solid var(--border-color);
+}
+
+/* Form control sizing */
+.form-control-sm,
+.form-select-sm {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* Button margin reset */
+button {
+    margin-right: 0;
+}
+
+/* Strong text */
+strong {
+    font-weight: 500;
+    color: var(--text-color);
+}
+
+/* Page title styling */
+#page-title-promo {
+    margin-bottom: 20px;
+}
+
+/* Active jobs display */
+#single-promo-jobs,
+#auto-promo-jobs {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.6;
+}
+
+/* Cost display */
+#single-cost-display,
+#auto-cost-display,
+#single-service-info,
+#provider-cost-display,
+#profile-total-cost {
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.6;
+}
+
+/* Ensure Bootstrap row styling */
+.row {
+    --bs-gutter-x: 16px;
+    --bs-gutter-y: 16px;
+}
+
+/* Hide Bootstrap default blue focus */
+.btn:focus,
+.form-control:focus,
+.form-select:focus {
+    box-shadow: none !important;
+}
+
+/* Pagination - Minimalistic */
+.pagination {
+    gap: 4px;
+}
+
+.page-link {
+    background: transparent;
+    border: 1px solid var(--border-medium);
+    color: var(--text-muted);
+    padding: 8px 12px;
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    border-radius: 0;
+    transition: all 0.2s;
+}
+
+.page-link:hover {
+    background: var(--bg-tertiary);
+    border-color: var(--text-dim);
+    color: var(--text-color);
+}
+
+.page-item.active .page-link {
+    background: #fff;
+    border-color: #fff;
+    color: #000;
+}
+
+.page-item.disabled .page-link {
+    background: transparent;
+    border-color: var(--border-color);
+    color: var(--text-darkest);
+    opacity: 0.5;
+}
+
+/* Order status sections */
+.orders-section {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border-color);
+}
+
+.order-item {
+    margin-bottom: 8px;
+    padding: 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+}
+
+.order-item:last-child {
+    margin-bottom: 0;
+}
+
+.order-status-fields {
+    margin-top: 4px;
+    color: var(--text-dim);
+}
+
+/* Provider links */
+.text-primary {
+    color: var(--text-color) !important;
+}
+
+.text-decoration-underline {
+    text-decoration: underline !important;
+}
+
+/* Gap utility */
+.gap-2 {
+    gap: 8px !important;
+}
+
+/* Input max width override */
+input[style*="max-width"] {
+    border-radius: 0 !important;
+}
+
+/* Align middle for tables */
+.align-middle {
+    vertical-align: middle !important;
+}
+
+/* FW bold */
+.fw-bold {
+    font-weight: 500 !important;
+}
+
+/* Info button */
+.btn-info {
+    background: transparent;
+    border-color: var(--text-dim);
+    color: var(--text-dim);
+}
+
+.btn-info:hover:not(:disabled) {
+    background: var(--text-dim);
+    border-color: var(--text-dim);
+    color: #000;
+}
+
+/* Table hover */
+.table-hover > tbody > tr:hover > * {
+    background-color: var(--bg-tertiary);
+    color: var(--text-color);
+}
+
+/* Status display */
+.status-display {
+    font-size: 11px;
+    letter-spacing: 0.02em;
+}
+
+/* Text center */
+.text-center {
+    text-align: center !important;
+}
+
+/* Debug page styles */
+#page-debug .card {
+    margin-bottom: 16px;
+}
+
+#page-debug pre {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    padding: 12px;
+    font-size: 11px;
+    color: var(--text-color);
+    overflow-x: auto;
+    margin: 0;
+}
+
+#page-debug code {
+    color: var(--text-color);
+    font-size: 11px;
+}
+
+/* Ensure all Bootstrap text colors use theme */
+.text-success { color: var(--success-color) !important; }
+.text-danger { color: var(--danger-color) !important; }
+.text-warning { color: var(--warning-color) !important; }
+
+/* Remove Bootstrap's default blue colors */
+.btn-primary:focus,
+.btn-success:focus,
+.btn-danger:focus,
+.btn-secondary:focus,
+.btn-info:focus {
+    box-shadow: none !important;
+}
+
+/* Ensure no blue outlines anywhere */
+*:focus {
+    outline: none !important;
+}
+
+/* Ensure select options are styled */
+option {
+    background: var(--bg-tertiary);
+    color: var(--text-color);
 }

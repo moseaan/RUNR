@@ -6,7 +6,7 @@ SET "APP_FILES_DIR=%SCRIPT_DIR%app_files"
 REM *** IMPORTANT: Adjust this line if your Flask app is in main_app.py instead of app.py ***
 SET "APP_MODULE=app:app"
 SET "HOST=0.0.0.0"
-SET "PORT=5000"
+SET "PORT=4000"
 
 ECHO Starting Flask application locally using Waitress from %APP_FILES_DIR% ...
 

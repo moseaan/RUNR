@@ -40,6 +40,20 @@ except ImportError:  # pragma: no cover
 # --- local ------------------------------------------------------------------
 import config  # noqa: F401  (import side‑effects elsewhere in the project)
 
+try:
+    from mongo_state import (
+        load_monitor_config_from_mongo,
+        save_monitor_config_to_mongo,
+        save_monitor_target_to_mongo,
+        delete_monitor_target_from_mongo,
+        get_monitor_target_from_mongo,
+        clear_monitor_cache,
+        is_mongo_available
+    )
+    MONGO_AVAILABLE = True
+except ImportError:
+    MONGO_AVAILABLE = False
+
 # ----------------------------------------------------------------------------
 log = logging.getLogger(__name__)
 logging.basicConfig(
@@ -217,9 +231,29 @@ def _default_config() -> dict:
 
 
 def load_monitoring_config() -> dict:
+    """Load monitoring config from MongoDB (primary) or JSON file (fallback)."""
+    # Try MongoDB first
+    if MONGO_AVAILABLE and is_mongo_available():
+        mongo_config = load_monitor_config_from_mongo()
+        if mongo_config is not None and (mongo_config.get('targets') or mongo_config.get('polling_interval_seconds')):
+            log.info(f"Loaded monitoring config from MongoDB with {len(mongo_config.get('targets', []))} targets")
+            return mongo_config
+        # MongoDB available but empty - try to migrate from JSON
+        json_config = _load_monitoring_config_from_json()
+        if json_config and json_config.get('targets'):
+            save_monitor_config_to_mongo(json_config)
+            log.info(f"✅ Migrated monitoring config with {len(json_config.get('targets', []))} targets from JSON to MongoDB")
+            return json_config
+    
+    # Fallback to JSON file
+    return _load_monitoring_config_from_json()
+
+
+def _load_monitoring_config_from_json() -> dict:
+    """Load monitoring config directly from JSON file."""
     try:
         if os.path.isfile(CONFIG_FILE):
-            with open(CONFIG_FILE, "r", encoding="utf‑8") as f:
+            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
                 data = json.load(f)
             data.setdefault("polling_interval_seconds", DEFAULT_POLLING_INTERVAL)
             data.setdefault("targets", [])
@@ -227,13 +261,30 @@ def load_monitoring_config() -> dict:
     except Exception as e:
         log.warning("Could not load config – using defaults: %s", e)
     # ensure file exists
-    save_monitoring_config(_default_config())
+    _save_monitoring_config_to_json(_default_config())
     return _default_config()
 
 
 def save_monitoring_config(cfg: dict) -> bool:
+    """Save monitoring config to MongoDB (primary) and JSON file (backup)."""
+    success = True
+    
+    # Save to MongoDB first (primary storage)
+    if MONGO_AVAILABLE and is_mongo_available():
+        if not save_monitor_config_to_mongo(cfg):
+            success = False
+    
+    # Also save to JSON file as backup
+    if not _save_monitoring_config_to_json(cfg):
+        success = False
+    
+    return success
+
+
+def _save_monitoring_config_to_json(cfg: dict) -> bool:
+    """Save monitoring config directly to JSON file."""
     try:
-        with open(CONFIG_FILE, "w", encoding="utf‑8") as f:
+        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
             json.dump(cfg, f, indent=4)
         log.info(f"Monitoring config saved to {CONFIG_FILE}")
         return True
@@ -244,6 +295,13 @@ def save_monitoring_config(cfg: dict) -> bool:
 
 def get_monitoring_target(target_id: str) -> Optional[dict]:
     """Retrieves a specific monitoring target by its ID."""
+    # Try MongoDB first for faster single-target lookup
+    if MONGO_AVAILABLE and is_mongo_available():
+        mongo_target = get_monitor_target_from_mongo(target_id)
+        if mongo_target:
+            return mongo_target
+    
+    # Fallback to config lookup
     cfg = load_monitoring_config()
     for target in cfg.get("targets", []):
         if target.get("id") == target_id:
@@ -257,8 +315,7 @@ def add_monitoring_target(username: str, promo_profile: str) -> Optional[dict]:
     for existing_target in cfg.get("targets", []):
         if existing_target.get("target_username") == username:
             log.warning(f"Attempted to add duplicate monitoring target for username: {username}")
-            # Depending on desired behavior, could return existing_target or an error indicator
-            return None # Or raise an error, or return the existing one
+            return None
     
     target = {
         "id": str(uuid.uuid4()),
@@ -266,17 +323,23 @@ def add_monitoring_target(username: str, promo_profile: str) -> Optional[dict]:
         "promotion_profile_name": promo_profile,
         "last_pushed_post_url": None,
         "is_running": True,
-        "last_checked_timestamp": None, # Store as ISO string
+        "last_checked_timestamp": None,
     }
     cfg["targets"].append(target)
     log.info(f"Added new monitoring target: {username} (ID: {target['id']})")
-    return target if save_monitoring_config(cfg) else None
+    
+    # Save to both MongoDB and JSON
+    if save_monitoring_config(cfg):
+        return target
+    return None
 
 
 def update_monitoring_target(target_id: str, updates: Dict[str, any]) -> bool:
     """Updates an existing monitoring target by ID."""
     cfg = load_monitoring_config()
     target_found = False
+    updated_target = None
+    
     for target in cfg.get("targets", []):
         if target.get("id") == target_id:
             # Ensure last_checked_timestamp is handled correctly if present in updates
@@ -284,11 +347,17 @@ def update_monitoring_target(target_id: str, updates: Dict[str, any]) -> bool:
                 updates["last_checked_timestamp"] = updates["last_checked_timestamp"].isoformat()
             
             target.update(updates)
+            updated_target = target
             target_found = True
             log.info(f"Updating target ID {target_id} with: {updates}")
             break
+    
     if target_found:
+        # Also update directly in MongoDB for faster updates
+        if MONGO_AVAILABLE and is_mongo_available() and updated_target:
+            save_monitor_target_to_mongo(updated_target)
         return save_monitoring_config(cfg)
+    
     log.warning(f"Attempted to update non-existent target ID: {target_id}")
     return False
 
@@ -298,9 +367,14 @@ def remove_monitoring_target(target_id: str) -> bool:
     cfg = load_monitoring_config()
     original_target_count = len(cfg.get("targets", []))
     cfg["targets"] = [t for t in cfg.get("targets", []) if t.get("id") != target_id]
+    
     if len(cfg["targets"]) < original_target_count:
         log.info(f"Removed monitoring target ID: {target_id}")
+        # Also remove directly from MongoDB
+        if MONGO_AVAILABLE and is_mongo_available():
+            delete_monitor_target_from_mongo(target_id)
         return save_monitoring_config(cfg)
+    
     log.warning(f"Attempted to remove non-existent target ID: {target_id}")
     return False
 

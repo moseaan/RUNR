@@ -8,9 +8,9 @@
                 "rate_per_1k": 0.0812,
                 "use_random_quantity": true,
                 "fixed_quantity": null,
-                "min_quantity": 200,
-                "max_quantity": 400,
-                "loops": 30
+                "min_quantity": 100,
+                "max_quantity": 120,
+                "loops": 90
             },
             {
                 "type": "Likes",
@@ -32,7 +32,7 @@
                 "fixed_quantity": null,
                 "min_quantity": 10,
                 "max_quantity": 20,
-                "loops": 2
+                "loops": 1
             },
             {
                 "type": "Saves",
@@ -64,16 +64,16 @@
                 "use_random_quantity": true,
                 "fixed_quantity": null,
                 "min_quantity": 10,
-                "max_quantity": 20,
+                "max_quantity": 15,
                 "loops": 1
             }
         ],
         "loop_settings": {
-            "loops": 30,
+            "loops": 90,
             "delay": 0,
             "random_delay": true,
-            "min_delay": 30,
-            "max_delay": 120
+            "min_delay": 120,
+            "max_delay": 360
         }
     },
     "Instagram Followers (+2500/Month)": {

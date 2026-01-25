@@ -1,1 +1,28 @@
-{}
+{
+  "promo_api_Instagram New Post_1769286796.839964": {
+    "current_loop": 2,
+    "total_loops": 90,
+    "start_time": "2026-01-24T14:33:16.840929",
+    "in_delay": true,
+    "delay_start": "2026-01-24T14:35:41.100590",
+    "delay_duration": 399.00178772984407,
+    "messages": [
+      "No CSV service for Instagram/Views",
+      "No CSV service for Instagram/Likes",
+      "No CSV service for Instagram/Shares",
+      "No CSV service for Instagram/Saves",
+      "No CSV service for Instagram/Profile Visits/Impressions",
+      "No CSV service for Instagram/Reposts",
+      "No CSV service for Instagram/Views",
+      "No CSV service for Instagram/Likes",
+      "No CSV service for Instagram/Saves",
+      "No CSV service for Instagram/Profile Visits/Impressions"
+    ],
+    "total_orders": 0,
+    "placed_orders": [],
+    "profile_name": "Instagram New Post",
+    "link": "https://www.instagram.com/p/DT6A8nVEb9E/",
+    "platform_filter": "Instagram",
+    "last_updated": "2026-01-24T14:38:23.357986"
+  }
+}

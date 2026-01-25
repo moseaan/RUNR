@@ -1,3 +1,27 @@
+    // JavaScript for fetching data and handling UI interactions
+
+console.log("Script loaded.");
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log("DOM fully loaded and parsed");
+
+    // --- Hamburger Menu Toggle ---
+    const navToggle = document.getElementById('nav-toggle');
+    const navLinks = document.getElementById('nav-links');
+    if (navToggle && navLinks) {
+        navToggle.addEventListener('click', function() {
+            navToggle.classList.toggle('active');
+            navLinks.classList.toggle('active');
+        });
+        // Close menu when clicking a link
+        navLinks.querySelectorAll('a').forEach(link => {
+            link.addEventListener('click', () => {
+                navToggle.classList.remove('active');
+                navLinks.classList.remove('active');
+            });
+        });
+    }
+
     // Provider normalization for comparisons (inside scope)
     function canonicalProviderId(p) {
         const lc = (p || '').toString().toLowerCase().replace(/\s+/g, '');
@@ -47,6 +71,7 @@
             btn.disabled = false;
         }
     }
+
     // Overrides loader/cacher (inside scope)
     async function loadServiceOverrides() {
         if (serviceOverridesCache) return serviceOverridesCache;
@@ -60,6 +85,7 @@
         } catch(_) { serviceOverridesCache = {}; }
         return serviceOverridesCache;
     }
+
     function getServiceOverride(platform, engagement) {
         const ov = serviceOverridesCache || {};
         if (!platform || !engagement) return null;
@@ -72,12 +98,6 @@
         const ekey = Object.keys(perPlat).find(k => canon(k) === e);
         return ekey ? perPlat[ekey] : null;
     }
-// JavaScript for fetching data and handling UI interactions - will be added later
-
-console.log("Script loaded.");
-
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("DOM fully loaded and parsed");
 
     // --- Global State (Declare caches AND other state vars BEFORE other logic) ---
     let profilesDataCache = {}; 
@@ -124,14 +144,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let promoReady = false;
 
     function updateGlobalReadyStatus() {
-        const statusAreaId = 'status-text';
-        const statusMessageId = 'status-text';
-        if (singleReady && promoReady) {
-            showStatus('Ready', 'success', statusAreaId, statusMessageId);
-        } else {
-            showStatus('Not Ready', 'danger', statusAreaId, statusMessageId);
-        }
-
+        // Status messages removed - app is always ready
     }
 
     // --- Persist active jobs across refresh using localStorage ---
@@ -1581,7 +1594,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- Balances page init ---
     async function initializeBalancesPage() {
-        const providers = ['justanotherpanel', 'peakerr', 'smmkings', 'mysocialsboost'];
+        const providers = ['justanotherpanel', 'peakerr', 'smmkings', 'mysocialsboost', 'morethanpanel'];
         const timers = {};
 
         async function fetchBalance(provider) {
@@ -1825,23 +1838,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 }
                 const pageParam = getQueryParam('page');
-                const isFirstPage = !pageParam || String(pageParam) === '1';
-                if (isFirstPage) {
-                    // Progressive, top-to-bottom load for first page only
-                    progressiveLoadHistoryStatuses();
-                    // Optional: refresh on visibility/focus to update latest
-                    document.addEventListener('visibilitychange', () => {
-                        if (document.visibilityState === 'visible') {
-                            progressiveLoadHistoryStatuses();
-                        }
-                    });
-                    window.addEventListener('focus', () => {
+                // Progressive, top-to-bottom load for current page (all pages)
+                progressiveLoadHistoryStatuses();
+                // Optional: refresh on visibility/focus to update latest
+                document.addEventListener('visibilitychange', () => {
+                    if (document.visibilityState === 'visible') {
                         progressiveLoadHistoryStatuses();
-                    });
-                } else {
-                    // Do not load live API statuses on non-first pages
-                    try { if (historyPollIntervalId) clearInterval(historyPollIntervalId); } catch(_) {}
-                }
+                    }
+                });
+                window.addEventListener('focus', () => {
+                    progressiveLoadHistoryStatuses();
+                });
             } else {
                 // Assuming it might be the index/single promo page if none of the others match specifically
                 console.log("Running on Index/Single Promo Page specific init (fallback)...");
@@ -3180,21 +3187,69 @@ document.addEventListener('DOMContentLoaded', function() {
             minDelayInput.value = profileData.loop_settings?.min_delay || 0;
             maxDelayInput.value = profileData.loop_settings?.max_delay || 0;
 
-            // Rebuild saved engagement rows
-            console.log("Rebuilding saved engagement rows...");
+            // Rebuild saved engagement rows - fetch CURRENT service config for each
+            console.log("Rebuilding saved engagement rows with current service config...");
             if (profileData.engagements && Array.isArray(profileData.engagements)) {
-                 profileData.engagements.forEach(savedEng => {
-                    // Assuming addEngagementRow exists and works with the new structure
-                    // Use the saved platform (fallback to Instagram)
-                    if (typeof addEngagementRow === 'function') {
+                // Use async IIFE to fetch current service config for each engagement
+                (async () => {
+                    for (const savedEng of profileData.engagements) {
+                        if (typeof addEngagementRow !== 'function') {
+                            console.error("addEngagementRow function is missing!");
+                            continue;
+                        }
                         const platform = savedEng.platform || 'Instagram';
-                        const svcMin = (savedEng && savedEng.min_qty != null) ? parseInt(savedEng.min_qty, 10) : null;
-                        const minRequired = (svcMin && svcMin > 0) ? svcMin : 1; // Enforce per-service min when available
-                        addEngagementRow(savedEng.type, savedEng, minRequired, platform); // Pass saved data + platform
-                    } else {
-                         console.error("addEngagementRow function is missing!");
+                        const engType = savedEng.type;
+
+                        // Fetch CURRENT service config from backend
+                        let currentService = null;
+                        try {
+                            const resp = await fetch(`/api/services/effective?platform=${encodeURIComponent(platform)}&engagement=${encodeURIComponent(engType)}`);
+                            if (resp.ok) {
+                                const data = await resp.json();
+                                if (data.success && data.service) {
+                                    currentService = data.service;
+                                    console.log(`Fetched current service for ${platform}/${engType}:`, currentService);
+                                }
+                            }
+                        } catch (e) {
+                            console.warn(`Could not fetch current service for ${platform}/${engType}:`, e);
+                        }
+
+                        // Merge current service config into engagement data
+                        const engDataWithCurrentService = { ...savedEng };
+                        if (currentService) {
+                            engDataWithCurrentService.service_id = currentService.service_id;
+                            engDataWithCurrentService.service_name = currentService.service_name || currentService.name;
+                            engDataWithCurrentService.rate_per_1k = currentService.rate_per_1k;
+                            engDataWithCurrentService.min_qty = currentService.min_qty;
+                            engDataWithCurrentService.max_qty = currentService.max_qty;
+
+                            // Auto-correct quantities if below new service minimum
+                            const newMin = parseInt(currentService.min_qty, 10) || 1;
+                            if (savedEng.min_quantity != null && parseInt(savedEng.min_quantity, 10) < newMin) {
+                                console.log(`Auto-correcting min_quantity for ${engType}: ${savedEng.min_quantity} -> ${newMin}`);
+                                engDataWithCurrentService.min_quantity = newMin;
+                            }
+                            if (savedEng.fixed_quantity != null && parseInt(savedEng.fixed_quantity, 10) < newMin) {
+                                console.log(`Auto-correcting fixed_quantity for ${engType}: ${savedEng.fixed_quantity} -> ${newMin}`);
+                                engDataWithCurrentService.fixed_quantity = newMin;
+                            }
+                            // Ensure max_quantity >= min_quantity
+                            if (engDataWithCurrentService.max_quantity != null && engDataWithCurrentService.min_quantity != null) {
+                                if (parseInt(engDataWithCurrentService.max_quantity, 10) < parseInt(engDataWithCurrentService.min_quantity, 10)) {
+                                    engDataWithCurrentService.max_quantity = engDataWithCurrentService.min_quantity;
+                                }
+                            }
+                        }
+
+                        const minRequired = (engDataWithCurrentService.min_qty != null)
+                            ? parseInt(engDataWithCurrentService.min_qty, 10)
+                            : 1;
+                        addEngagementRow(engType, engDataWithCurrentService, minRequired, platform);
                     }
-                 });
+                    // Refresh cost estimate after all rows loaded
+                    try { updateModalProfileCostEstimate(); } catch (_) { }
+                })();
             } else {
                 console.log("No existing engagement data found to rebuild.");
             }
@@ -3677,7 +3732,7 @@ document.addEventListener('DOMContentLoaded', function() {
             alert("Internal error: Could not find engagement settings container. Please check console.");
             return; 
         }
-        const engagementRows = modalEngagementRowsContainer.querySelectorAll('.engagement-row'); // Query the correct container
+        const engagementRows = modalEngagementRowsContainer.querySelectorAll('.engagement-row');
         let firstErrorElement = null; 
 
         engagementRows.forEach(row => {
@@ -3693,7 +3748,7 @@ document.addEventListener('DOMContentLoaded', function() {
             
             let hasData = false; 
             let isValid = true; 
-            let validationMessage = ""; // Store specific error message
+            let validationMessage = "";
             const engagement = {
                 type: type,
                 platform: platform,
@@ -3706,10 +3761,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 loops: parseInt(loopInput.value) || 1
             };
 
-            // --- UI min relaxed; server validates against CSV per selected service ---
-            const minRequired = 1;
+            // Get service minimum from row data attributes
+            const serviceMinAttr = row.getAttribute('data-service-min');
+            const minRequired = (serviceMinAttr != null && !isNaN(parseInt(serviceMinAttr, 10))) 
+                ? parseInt(serviceMinAttr, 10) 
+                : 1;
 
-            fixedQtyInput.style.borderColor = ''; // Reset borders
+            fixedQtyInput.style.borderColor = '';
             minQtyInput.style.borderColor = '';
             maxQtyInput.style.borderColor = '';
 
@@ -3718,19 +3776,26 @@ document.addEventListener('DOMContentLoaded', function() {
                 const maxVal = maxQtyInput.value.trim();
                 if (minVal || maxVal) { 
                     hasData = true;
-                    const min = parseInt(minVal);
-                    const max = parseInt(maxVal);
+                    let min = parseInt(minVal);
+                    let max = parseInt(maxVal);
                     if (isNaN(min) || min <= 0 || isNaN(max) || max <= 0 || min > max) {
                         isValid = false;
                         validationMessage = "Invalid Min/Max quantity.";
                         minQtyInput.style.borderColor = 'red'; 
                         maxQtyInput.style.borderColor = 'red';
                         if (!firstErrorElement) firstErrorElement = minQtyInput;
-                    } else if (minRequired !== undefined && min < minRequired) { // *** ADD MIN CHECK ***
-                        isValid = false;
-                        validationMessage = `Minimum for random must be at least ${minRequired}.`;
-                        minQtyInput.style.borderColor = 'red';
-                         if (!firstErrorElement) firstErrorElement = minQtyInput;
+                    } else if (minRequired > 1 && min < minRequired) {
+                        // Auto-correct: enforce service minimum
+                        console.log(`Auto-correcting min_quantity for ${type}: ${min} -> ${minRequired}`);
+                        min = minRequired;
+                        minQtyInput.value = minRequired;
+                        minQtyInput.style.borderColor = 'orange';
+                        engagement.min_quantity = min;
+                        engagement.max_quantity = Math.max(max, min);
+                        if (max < min) {
+                            maxQtyInput.value = min;
+                            maxQtyInput.style.borderColor = 'orange';
+                        }
                     } else {
                         engagement.min_quantity = min;
                         engagement.max_quantity = max;
@@ -3740,17 +3805,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 const fixedVal = fixedQtyInput.value.trim();
                 if (fixedVal) { 
                     hasData = true;
-                    const fixed = parseInt(fixedVal);
+                    let fixed = parseInt(fixedVal);
                     if (isNaN(fixed) || fixed <= 0) {
                         isValid = false;
                         validationMessage = "Invalid Fixed quantity.";
                         fixedQtyInput.style.borderColor = 'red'; 
                         if (!firstErrorElement) firstErrorElement = fixedQtyInput;
-                    } else if (minRequired !== undefined && fixed < minRequired) { // *** ADD MIN CHECK ***
-                         isValid = false;
-                         validationMessage = `Minimum fixed quantity is ${minRequired}.`;
-                         fixedQtyInput.style.borderColor = 'red';
-                         if (!firstErrorElement) firstErrorElement = fixedQtyInput;
+                    } else if (minRequired > 1 && fixed < minRequired) {
+                        // Auto-correct: enforce service minimum
+                        console.log(`Auto-correcting fixed_quantity for ${type}: ${fixed} -> ${minRequired}`);
+                        fixed = minRequired;
+                        fixedQtyInput.value = minRequired;
+                        fixedQtyInput.style.borderColor = 'orange';
+                        engagement.fixed_quantity = fixed;
                     } else {
                         engagement.fixed_quantity = fixed;
                     }
@@ -3760,23 +3827,18 @@ document.addEventListener('DOMContentLoaded', function() {
             if (hasData && isValid) {
                 engagements.push(engagement);
             } else if (hasData && !isValid) {
-                 // Error occurred, keep track of the first one
-                 if (!firstErrorElement) { // Should have been set, but fallback
-                     firstErrorElement = (isRandom) ? minQtyInput : fixedQtyInput;
-                 }
-                 // Store validation message on the row for display? (Optional)
-                 row.dataset.validationError = validationMessage; 
+                if (!firstErrorElement) {
+                    firstErrorElement = (isRandom) ? minQtyInput : fixedQtyInput;
+                }
+                row.dataset.validationError = validationMessage; 
             }
         });
 
         if (firstErrorElement) {
             const errorRow = firstErrorElement.closest('.engagement-row');
             const specificMessage = errorRow.dataset.validationError || "Please correct highlighted errors.";
-            // Use showStatus for profile modal errors, need status elements in the modal
-            // For now, let's revert to simple alert or console log for modal errors
-            // showTemporaryStatus(errorRow, specificMessage, "warning"); 
             console.error("Profile Save Validation Error:", specificMessage, errorRow);
-            alert(`Validation Error: ${specificMessage}`); // Simple alert for now
+            alert(`Validation Error: ${specificMessage}`);
             firstErrorElement.focus();
             delete errorRow.dataset.validationError; 
             return; 
@@ -3790,8 +3852,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const maxDelayVal = parseFloat(maxDelayInput.value) || 0;
 
         if (useRandomDelayVal && minDelayVal > maxDelayVal) {
-            // showTemporaryStatus(minDelayInput.parentElement, "Min delay cannot be greater than Max delay.", "warning");
-            alert("Validation Error: Min delay cannot be greater than Max delay."); // Simple alert
+            alert("Validation Error: Min delay cannot be greater than Max delay.");
             return;
         }
 

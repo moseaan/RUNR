@@ -3,6 +3,24 @@ import json
 import os
 from typing import Dict, List, Optional, Tuple, Any
 
+try:
+    from mongo_state import (
+        load_services_from_mongo,
+        save_services_to_mongo,
+        update_service_in_mongo,
+        clear_services_cache,
+        is_mongo_available
+    )
+    MONGO_AVAILABLE = True
+except ImportError:
+    MONGO_AVAILABLE = False
+
+try:
+    import profile_manager
+    PROFILE_MANAGER_AVAILABLE = True
+except ImportError:
+    PROFILE_MANAGER_AVAILABLE = False
+
 # Service CSV columns:
 # Platform,Service Category,Tier,Provider,ID,Name,Rate/1K,Min/Max,Time/Speed,Why Organic/Notes
 
@@ -12,8 +30,8 @@ _SERVICES_JSON_CACHE: Optional[List[Dict[str, Any]]] = None
 
 
 def _project_root() -> str:
-    """Return absolute path to project root (two levels up from this file)."""
-    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+    """Return absolute path to project root (one level up from app_files)."""
+    return os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
 
 
 def _csv_path() -> str:
@@ -208,53 +226,81 @@ def clear_overrides_cache() -> None:
 
 
 def _load_services_json(refresh: bool = False) -> List[Dict[str, Any]]:
-    """Load services from JSON catalog. Migrates CSV if needed."""
+    """Load services from MongoDB (primary) or JSON catalog (fallback). Migrates data if needed."""
     global _SERVICES_JSON_CACHE
     if _SERVICES_JSON_CACHE is not None and not refresh:
         return _SERVICES_JSON_CACHE
     
-    # Ensure migration happened
+    # Try MongoDB first
+    if MONGO_AVAILABLE and is_mongo_available():
+        mongo_services = load_services_from_mongo(refresh=refresh)
+        if mongo_services is not None and len(mongo_services) > 0:
+            _SERVICES_JSON_CACHE = _normalize_services(mongo_services)
+            return _SERVICES_JSON_CACHE
+        # MongoDB available but empty - try to migrate from JSON
+        json_services = _load_services_from_json_file()
+        if json_services:
+            save_services_to_mongo(json_services)
+            _SERVICES_JSON_CACHE = json_services
+            print(f"✅ Migrated {len(json_services)} services from JSON to MongoDB")
+            return _SERVICES_JSON_CACHE
+    
+    # Fallback to JSON file
+    json_services = _load_services_from_json_file()
+    _SERVICES_JSON_CACHE = json_services
+    return _SERVICES_JSON_CACHE
+
+
+def _normalize_services(services: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Ensure all services have proper types."""
+    normalized = []
+    for svc in services:
+        if not isinstance(svc, dict):
+            continue
+        normalized.append({
+            'platform': svc.get('platform'),
+            'service_category': svc.get('service_category'),
+            'tier': svc.get('tier'),
+            'provider': svc.get('provider'),
+            'provider_label': svc.get('provider_label'),
+            'service_id': int(svc['service_id']) if svc.get('service_id') is not None else None,
+            'name': svc.get('name'),
+            'rate_per_1k': float(svc['rate_per_1k']) if svc.get('rate_per_1k') is not None else None,
+            'min_qty': int(svc['min_qty']) if svc.get('min_qty') is not None else None,
+            'max_qty': int(svc['max_qty']) if svc.get('max_qty') is not None else None,
+            'notes': svc.get('notes'),
+        })
+    return normalized
+
+
+def _load_services_from_json_file() -> List[Dict[str, Any]]:
+    """Load services directly from JSON file (without MongoDB)."""
+    # Ensure migration from CSV happened
     _migrate_csv_to_json()
     
     json_path = _services_json_path()
     if not os.path.exists(json_path):
-        # Fallback to empty if no JSON yet
-        _SERVICES_JSON_CACHE = []
-        return _SERVICES_JSON_CACHE
+        return []
     
     try:
         with open(json_path, 'r', encoding='utf-8') as f:
             data = json.load(f)
             services = data.get('services', [])
-            # Ensure all services have proper types
-            normalized = []
-            for svc in services:
-                if not isinstance(svc, dict):
-                    continue
-                normalized.append({
-                    'platform': svc.get('platform'),
-                    'service_category': svc.get('service_category'),
-                    'tier': svc.get('tier'),
-                    'provider': svc.get('provider'),
-                    'provider_label': svc.get('provider_label'),
-                    'service_id': int(svc['service_id']) if svc.get('service_id') is not None else None,
-                    'name': svc.get('name'),
-                    'rate_per_1k': float(svc['rate_per_1k']) if svc.get('rate_per_1k') is not None else None,
-                    'min_qty': int(svc['min_qty']) if svc.get('min_qty') is not None else None,
-                    'max_qty': int(svc['max_qty']) if svc.get('max_qty') is not None else None,
-                    'notes': svc.get('notes'),
-                })
-            _SERVICES_JSON_CACHE = normalized
-            return _SERVICES_JSON_CACHE
+            return _normalize_services(services)
     except (json.JSONDecodeError, OSError, KeyError, ValueError) as e:
         print(f"Error loading services JSON: {e}")
-        _SERVICES_JSON_CACHE = []
-        return _SERVICES_JSON_CACHE
+        return []
 
 
 def _save_services_json(services: List[Dict[str, Any]]) -> None:
-    """Save services to JSON catalog."""
+    """Save services to MongoDB (primary) and JSON catalog (backup)."""
     global _SERVICES_JSON_CACHE
+    
+    # Save to MongoDB first (primary storage)
+    if MONGO_AVAILABLE and is_mongo_available():
+        save_services_to_mongo(services)
+    
+    # Also save to JSON file as backup
     json_path = _services_json_path()
     os.makedirs(os.path.dirname(json_path), exist_ok=True)
     with open(json_path, 'w', encoding='utf-8') as f:
@@ -303,6 +349,11 @@ def set_override(platform: str, engagement: str, service: Dict[str, Any]) -> Dic
     
     _save_services_json(services)
     
+    # Auto-update all profiles that use this platform+engagement
+    updated_profiles = update_profiles_for_service_change(platform, engagement, new_service)
+    if updated_profiles:
+        print(f"✅ Auto-updated {len(updated_profiles)} profile(s) for {platform}/{engagement}")
+    
     # Return the created service for API response
     return {
         'service_id': service_id,
@@ -313,6 +364,104 @@ def set_override(platform: str, engagement: str, service: Dict[str, Any]) -> Dic
         'max_qty': new_service.get('max_qty'),
         'rate_per_1k': new_service.get('rate_per_1k'),
     }
+
+
+def update_profiles_for_service_change(platform: str, engagement: str, new_service: Dict[str, Any]) -> List[str]:
+    """
+    Update all profiles that have engagements matching the given platform+engagement.
+    Updates service_id, rate_per_1k, and enforces min_quantity >= service min_qty.
+    Returns list of updated profile names.
+    """
+    if not PROFILE_MANAGER_AVAILABLE:
+        print("Warning: profile_manager not available, cannot auto-update profiles")
+        return []
+    
+    try:
+        profiles = profile_manager.load_profiles()
+    except Exception as e:
+        print(f"Warning: Could not load profiles for auto-update: {e}")
+        return []
+    
+    if not profiles:
+        return []
+    
+    updated_profile_names = []
+    new_service_id = new_service.get('service_id')
+    new_rate = new_service.get('rate_per_1k')
+    new_min_qty = new_service.get('min_qty')
+    
+    # Normalize engagement name for comparison (case-insensitive)
+    engagement_lower = (engagement or '').lower()
+    platform_lower = (platform or '').lower()
+    
+    for profile_name, profile_data in profiles.items():
+        if not isinstance(profile_data, dict):
+            continue
+        
+        engagements = profile_data.get('engagements', [])
+        if not isinstance(engagements, list):
+            continue
+        
+        profile_modified = False
+        
+        for eng in engagements:
+            if not isinstance(eng, dict):
+                continue
+            
+            eng_type = (eng.get('type') or '').lower()
+            eng_platform = (eng.get('platform') or '').lower()
+            
+            # Check if this engagement matches the updated service
+            if eng_type == engagement_lower and eng_platform == platform_lower:
+                # Update service_id
+                if new_service_id is not None:
+                    eng['service_id'] = new_service_id
+                    profile_modified = True
+                
+                # Update rate_per_1k
+                if new_rate is not None:
+                    eng['rate_per_1k'] = new_rate
+                    profile_modified = True
+                
+                # Enforce minimum quantity
+                if new_min_qty is not None:
+                    new_min_qty_int = int(new_min_qty)
+                    
+                    # Update min_quantity if it's less than service minimum
+                    current_min = eng.get('min_quantity')
+                    if current_min is not None and int(current_min) < new_min_qty_int:
+                        eng['min_quantity'] = new_min_qty_int
+                        profile_modified = True
+                        print(f"  - {profile_name}: Updated min_quantity for {engagement} from {current_min} to {new_min_qty_int}")
+                    
+                    # Update fixed_quantity if it's less than service minimum
+                    fixed_qty = eng.get('fixed_quantity')
+                    if fixed_qty is not None and int(fixed_qty) < new_min_qty_int:
+                        eng['fixed_quantity'] = new_min_qty_int
+                        profile_modified = True
+                        print(f"  - {profile_name}: Updated fixed_quantity for {engagement} from {fixed_qty} to {new_min_qty_int}")
+                    
+                    # Update max_quantity if it's less than min_quantity (to keep valid range)
+                    current_max = eng.get('max_quantity')
+                    if current_max is not None and eng.get('min_quantity') is not None:
+                        if int(current_max) < int(eng.get('min_quantity')):
+                            eng['max_quantity'] = int(eng.get('min_quantity'))
+                            profile_modified = True
+                            print(f"  - {profile_name}: Updated max_quantity for {engagement} to match min_quantity")
+        
+        if profile_modified:
+            updated_profile_names.append(profile_name)
+    
+    # Save profiles if any were modified
+    if updated_profile_names:
+        try:
+            profile_manager.save_profiles(profiles)
+            print(f"✅ Saved updated profiles: {', '.join(updated_profile_names)}")
+        except Exception as e:
+            print(f"Warning: Could not save updated profiles: {e}")
+            return []
+    
+    return updated_profile_names
 
 
 def _service_to_public(service: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:

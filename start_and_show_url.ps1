@@ -9,7 +9,7 @@ $venvPath = Join-Path $scriptDir ".venv"
 $ngrokExePath = Join-Path $scriptDir "ngrok.exe"
 $pythonExePath = Join-Path (Join-Path $venvPath "Scripts") "python.exe"
 $appFilesDir = Join-Path $scriptDir "app_files"
-$waitressPort = 5000
+$waitressPort = 4000
 # --- End Configuration ---
 
 # --- Pre-checks ---

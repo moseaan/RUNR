@@ -24,3 +24,8 @@ ngrok.exe
 
 # Ignore session data
 app_files/dogehype_session/
+
+# Ignore Windsurf/Cascade MCP configuration (contains sensitive credentials)
+**/.codeium/windsurf/mcp_config.json
+**/windsurf/mcp_config.json
+mcp_config.json

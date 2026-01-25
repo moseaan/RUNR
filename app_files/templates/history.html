@@ -3,15 +3,10 @@
 {% block title %}RUNR - Promotion History{% endblock %}
 
 {% block content %}
-    <div class="container">
-        <h2>Promotion History</h2>
-        
-        <!-- Pagination Info -->
-        {% if total_items > 0 %}
-        <div class="mb-3 text-white">
-            <small>Showing {{ ((current_page - 1) * 10) + 1 }} - {{ [current_page * 10, total_items] | min }} of {{ total_items }} entries</small>
+    <div class="container mt-4">
+        <div class="page-header">
+            <h2>Promotion History</h2>
         </div>
-        {% endif %}
         
         <div id="history-list">
             {% if history %}
@@ -47,22 +42,33 @@
                                         {{ normalized_type | capitalize }}
                                     </td>
                                     {# #}
-                                    {# OLD DETAILS LOGIC #}
+                                    {# DETAILS LOGIC - Extract platform/engagement from profile_name if not directly available #}
                                     <td>
                                         {% set entry_type = entry.get('type') %}
+                                        {% set raw_platform = entry.get('platform') %}
+                                        {% set raw_engagement = entry.get('engagement') %}
+                                        {% set profile_name = entry.get('profile_name', '') %}
+                                        {# Parse platform/engagement from profile_name if missing (format: "Platform - Engagement" or "Platform - Engagement - #ServiceId") #}
+                                        {% if not raw_platform and profile_name and ' - ' in profile_name %}
+                                            {% set parts = profile_name.split(' - ') %}
+                                            {% set raw_platform = parts[0] if parts|length > 0 else None %}
+                                            {% set raw_engagement = parts[1] if parts|length > 1 else None %}
+                                        {% endif %}
                                         {% if entry_type == 'single' or entry_type == 'Single Promo' %}
-                                            Platform: {{ entry.get('platform', 'N/A') }}<br>
-                                            Engagement: {{ entry.get('engagement', 'N/A') }}<br>
+                                            Platform: {{ raw_platform or 'N/A' }}<br>
+                                            Engagement: {{ raw_engagement or 'N/A' }}<br>
                                             {% set link = entry.get('link') %}
                                             Link: {% if link %}<a href="{{ link }}" target="_blank">{{ link[:40] }}{% if link|length > 40 %}...{% endif %}</a>{% else %}N/A{% endif %}<br>
                                             Quantity: {{ entry.get('quantity', 'N/A') }}
                                         {% elif entry_type == 'profile' or entry_type == 'Profile Promo' %}
-                                            Profile: {{ entry.get('profile_name', 'N/A') }}<br>
+                                            Profile: {{ profile_name or 'N/A' }}<br>
                                             {% set link = entry.get('link') %}
                                             Link: {% if link %}<a href="{{ link }}" target="_blank">{{ link[:40] }}{% if link|length > 40 %}...{% endif %}</a>{% else %}N/A{% endif %}<br>
-                                            Loops/Qty: {{ entry.get('quantity', 'N/A') }} {# Quantity field stores loop info for profiles #}
-                                        {% else %} {# Fallback for unknown/older types #}
-                                            {{ entry.get('profile_name', 'Details N/A') }}<br>
+                                            Loops/Qty: {{ entry.get('quantity', 'N/A') }}
+                                        {% else %} {# Fallback for unknown/older types - also try to show platform/engagement #}
+                                            {% if raw_platform %}Platform: {{ raw_platform }}<br>{% endif %}
+                                            {% if raw_engagement %}Engagement: {{ raw_engagement }}<br>{% endif %}
+                                            {% if not raw_platform and not raw_engagement and profile_name %}{{ profile_name }}<br>{% endif %}
                                             {% set link = entry.get('link') %}
                                             {% if link %} Link: <a href="{{ link }}" target="_blank">{{ link[:40] }}{% if link|length > 40 %}...{% endif %}</a><br>{% endif %}
                                             {% if entry.get('quantity') %} Qty/Loops: {{ entry.get('quantity') }} {% endif %}

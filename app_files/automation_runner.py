@@ -1112,6 +1112,8 @@ def run_single_automation(platform: str, engagement_type: str, link: str, quanti
             "job_id": job_id,
             "type": "Single Promo",
             "profile_name": f"{platform} - {engagement_type}",
+            "platform": platform,
+            "engagement": engagement_type,
             "link": link,
             "quantity": quantity,
             "start_time": start_time.isoformat(),

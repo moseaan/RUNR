@@ -13,31 +13,49 @@ import providers_api as pa
 StatusCb = Callable[[str, str, Optional[str]], None]
 SaveHistoryCb = Callable[[dict], None]
 
-# State persistence for resume capability
+# MongoDB state persistence - import with fallback to file-based
+try:
+    import mongo_state
+    USE_MONGO = mongo_state.is_mongo_available()
+except ImportError:
+    USE_MONGO = False
+    mongo_state = None
+
+# Fallback file-based state persistence
 STATE_FILE = os.path.join(os.path.dirname(__file__), 'data', 'job_states.json')
 
 def save_job_state(job_id: str, state: dict):
-    """Save job execution state for resume on restart."""
+    """Save job execution state for resume on restart (uses MongoDB if available)."""
+    # Try MongoDB first
+    if USE_MONGO and mongo_state:
+        if mongo_state.save_job_state(job_id, state):
+            return
+    
+    # Fallback to file-based storage
     try:
         os.makedirs(os.path.dirname(STATE_FILE), exist_ok=True)
-        # Load existing states
         states = {}
         if os.path.exists(STATE_FILE):
             with open(STATE_FILE, 'r') as f:
                 states = json.load(f)
-        # Update this job's state
         states[job_id] = {
             **state,
             'last_updated': datetime.datetime.now().isoformat()
         }
-        # Save back
         with open(STATE_FILE, 'w') as f:
             json.dump(states, f, indent=2)
     except Exception as e:
         print(f"Warning: Could not save job state for {job_id}: {e}")
 
 def load_job_state(job_id: str) -> dict:
-    """Load saved job execution state."""
+    """Load saved job execution state (uses MongoDB if available)."""
+    # Try MongoDB first
+    if USE_MONGO and mongo_state:
+        state = mongo_state.load_job_state(job_id)
+        if state:
+            return state
+    
+    # Fallback to file-based storage
     try:
         if os.path.exists(STATE_FILE):
             with open(STATE_FILE, 'r') as f:
@@ -48,7 +66,12 @@ def load_job_state(job_id: str) -> dict:
     return {}
 
 def clear_job_state(job_id: str):
-    """Clear job state after completion."""
+    """Clear job state after completion (uses MongoDB if available)."""
+    # Try MongoDB first
+    if USE_MONGO and mongo_state:
+        mongo_state.clear_job_state(job_id)
+    
+    # Also clear from file-based storage for consistency
     try:
         if os.path.exists(STATE_FILE):
             with open(STATE_FILE, 'r') as f:
@@ -122,6 +145,8 @@ def run_single_api_order(platform: str, engagement: str, link: str, quantity: in
             'job_id': job_id,
             'type': 'Single Promo',
             'profile_name': f"{platform} - {engagement}",
+            'platform': platform,
+            'engagement': engagement,
             'link': link,
             'quantity': quantity,
             'start_time': start_time.isoformat(),
@@ -201,6 +226,8 @@ def run_order_by_service(platform: str, engagement: str, service_id: int, link: 
             'job_id': job_id,
             'type': 'Single Promo',
             'profile_name': f"{platform} - {engagement} - #{service_id}",
+            'platform': platform,
+            'engagement': engagement,
             'link': link,
             'quantity': quantity,
             'start_time': start_time.isoformat(),
@@ -239,6 +266,7 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
     start_time = datetime.datetime.fromisoformat(saved_state['start_time']) if saved_state.get('start_time') else datetime.datetime.now()
     
     success = True
+    final_success = False  # Will be set properly at end of try block
     messages = saved_state.get('messages', []) if saved_state else []
     total_orders = saved_state.get('total_orders', 0) if saved_state else 0
     placed_orders = saved_state.get('placed_orders', []) if saved_state else []
@@ -325,7 +353,7 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
                     svc = sc.get_effective_service(platform, eng_type)
                 if not svc:
                     messages.append(f"No CSV service for {platform}/{eng_type}")
-                    success = False
+                    # Don't fail the whole job - just skip this engagement
                     continue
 
                 # Validate against selected service min/max
@@ -333,11 +361,11 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
                 max_q = svc.get('max_qty')
                 if min_q is not None and qty < int(min_q):
                     messages.append(f"Qty {qty} < min {min_q} for {platform}/{eng_type}")
-                    success = False
+                    # Don't fail the whole job - just skip this engagement
                     continue
                 if max_q is not None and qty > int(max_q):
                     messages.append(f"Qty {qty} > max {max_q} for {platform}/{eng_type}")
-                    success = False
+                    # Don't fail the whole job - just skip this engagement
                     continue
 
                 provider = svc['provider']
@@ -371,7 +399,8 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
                             'total_orders': total_orders,
                             'placed_orders': placed_orders,
                             'profile_name': profile_name,
-                            'link': link
+                            'link': link,
+                            'platform_filter': platform_filter
                         })
                         try:
                             order_history_entry = {
@@ -399,18 +428,20 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
                             traceback.print_exc()
                     else:
                         messages.append(f"Failed {eng_type} -> {resp}")
-                        success = False
-                        break
+                        # API returned error - log but continue with other engagements
+                        # Don't break the entire loop for one failed order
+                        continue
                 except Exception as e:
                     messages.append(f"Error {eng_type}: {e}")
-                    success = False
-                    break
+                    # Log the error but continue with other engagements
+                    # Don't break the entire loop for one failed order
+                    continue
 
             if stopped():
                 break
-
-            if not success:
-                break
+            # Removed: if not success: break
+            # We no longer break on individual engagement failures
+            # The job continues through all loops even if some orders fail
 
             # Delay between loops
             if loop_num < main_loops:
@@ -454,7 +485,8 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
                                 'total_orders': total_orders,
                                 'placed_orders': placed_orders,
                                 'profile_name': profile_name,
-                                'link': link
+                                'link': link,
+                                'platform_filter': platform_filter
                             })
                         time.sleep(step)
                         slept += step
@@ -463,8 +495,10 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
                     success = False
                     break
 
+        # Determine final success: at least one order placed and not stopped
+        final_success = success and total_orders > 0
         final_msg = f"Orders: {total_orders}. " + "; ".join(messages[-10:])
-        status_update_callback(job_id, 'success' if success else 'failed', final_msg)
+        status_update_callback(job_id, 'success' if final_success else 'failed', final_msg)
     except Exception as e:
         success = False
         final_msg = f"Auto API error: {e}"
@@ -488,7 +522,7 @@ def run_profile_api_promo(profile_name: str, profile_data: dict, link: str,
             'start_time': start_time.isoformat(),
             'end_time': end_time.isoformat(),
             'duration_seconds': round(duration, 2),
-            'status': 'Success' if success else 'Failed',
+            'status': 'Success' if final_success else 'Failed',
             'message': final_msg,
             'order_count': total_orders,
             'total_cost': total_cost_sum,

@@ -5,29 +5,14 @@
 {% block body_attributes %}id="page-services"{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="mb-0">Services Configuration</h2>
-        <div>
+<div class="container mt-4" id="services-config-container">
+    <div class="page-header">
+        <h2>Services</h2>
+        <div class="page-header-buttons">
             <input type="file" id="import-services-file" accept=".json" style="display: none;">
-            <button id="import-services-btn" class="btn btn-outline-success btn-sm me-2">
-                Import Configs
-            </button>
-            <a href="/api/export/services-configs" class="btn btn-outline-primary btn-sm" download>
-                Export Configs
-            </a>
+            <button id="import-services-btn" class="btn btn-outline-success btn-sm">Import</button>
+            <a href="/api/export/services-configs" class="btn btn-outline-primary btn-sm" download>Export</a>
         </div>
-    </div>
-    
-    <!-- Status Area -->
-    <div id="services-status-area" class="status-area mb-3" style="min-height: 1.5em;">
-        <span id="services-status-message" class="text-body"></span>
-    </div>
-
-    <!-- Instructions -->
-    <div class="alert alert-info">
-        <strong>Configure Service Preferences:</strong> For each platform and engagement type, you can specify which provider and service ID to use. 
-        When you run a single or auto promo, the system will use your configured service instead of automatically selecting the cheapest one.
     </div>
 
     <!-- Services Grid -->
@@ -319,7 +304,7 @@
                 }
             }
 
-            showStatus('Services configuration loaded', 'success', 'services-status-area', 'services-status-message', 3000);
+            // Status message removed - services always load from database
         } catch (e) {
             console.error('Error loading services configuration:', e);
             showStatus('Error loading services: ' + e.message, 'danger', 'services-status-area', 'services-status-message');

@@ -2,28 +2,12 @@
     "polling_interval_seconds": 30,
     "targets": [
         {
-            "id": "4d4dcbb8-7fb6-48ae-ad14-656acf969f18",
-            "target_username": "mosznn",
-            "promotion_profile_name": "IG Reel",
-            "last_pushed_post_url": "https://www.instagram.com/p/DJ2J0Twyg2y/",
-            "is_running": false,
-            "last_checked_timestamp": "2025-05-19T19:03:06.010403+00:00"
-        },
-        {
-            "id": "61ef5fe2-08fa-47f5-8938-64408310d3a2",
-            "target_username": "moseaanfanpage",
-            "promotion_profile_name": "Main",
-            "last_pushed_post_url": "https://www.instagram.com/p/DOMa4zrCcxN/",
-            "is_running": false,
-            "last_checked_timestamp": "2025-09-13T20:23:33.061548+00:00"
-        },
-        {
-            "id": "e4246390-8da6-4699-ad2e-774964910796",
+            "id": "4b3c96fc-626c-42cb-bf42-e156ab2a2236",
             "target_username": "moseaan",
-            "promotion_profile_name": "Main",
-            "last_pushed_post_url": "https://www.instagram.com/p/DO9T9dNEaiD/",
-            "is_running": false,
-            "last_checked_timestamp": "2025-09-23T21:01:12.268986+00:00"
+            "promotion_profile_name": "Instagram New Post",
+            "last_pushed_post_url": "https://www.instagram.com/p/DT6A8nVEb9E/",
+            "is_running": true,
+            "last_checked_timestamp": "2026-01-25T21:30:10.992669+00:00"
         }
     ]
 }

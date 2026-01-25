@@ -18,7 +18,12 @@
         <div class="nav-brand">
              <a href="{{ url_for('index') }}" style="color: inherit; text-decoration: none;">RUNR</a>
         </div>
-        <div class="nav-links">
+        <button class="nav-toggle" id="nav-toggle" aria-label="Toggle navigation">
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+            <span class="hamburger-line"></span>
+        </button>
+        <div class="nav-links" id="nav-links">
             <a href="{{ url_for('index') }}">Promo</a>
             <a href="{{ url_for('profiles_page') }}">Profiles</a>
             <a href="{{ url_for('history_page') }}">History</a>

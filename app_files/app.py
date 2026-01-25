@@ -51,75 +51,131 @@ scheduler.start()
 # --- Job Status Tracking --- (Used for manual/profile promotions)
 job_statuses = {} # In-memory dictionary to store job status: {job_id: {'status': 'pending/running/success/failed', 'message': '...'}}
 
-# Persistent storage for active jobs (survives restarts)
+# MongoDB state persistence - import with fallback to file-based
+try:
+    import mongo_state
+    USE_MONGO = mongo_state.is_mongo_available()
+    if USE_MONGO:
+        print("✅ MongoDB available for auto promo state persistence")
+except ImportError:
+    USE_MONGO = False
+    mongo_state = None
+    print("⚠️ MongoDB not available, using file-based state persistence")
+
+# Fallback file-based storage for active jobs
 ACTIVE_JOBS_FILE = os.path.join(os.path.dirname(__file__), 'data', 'active_jobs.json')
 
 def save_active_jobs():
-    """Save active jobs to disk for restart recovery."""
+    """Save active jobs for restart recovery (uses MongoDB if available)."""
+    terminal_statuses = {'success', 'failed', 'stopped'}
+    active = {jid: info for jid, info in job_statuses.items() 
+              if (info.get('status') or '').lower() not in terminal_statuses}
+    
+    # Try MongoDB first
+    if USE_MONGO and mongo_state:
+        for job_id, job_info in active.items():
+            mongo_state.save_active_job(job_id, job_info)
+        # Also remove completed jobs from MongoDB
+        for job_id, info in job_statuses.items():
+            if (info.get('status') or '').lower() in terminal_statuses:
+                mongo_state.remove_active_job(job_id)
+        return
+    
+    # Fallback to file-based storage
     try:
         os.makedirs(os.path.dirname(ACTIVE_JOBS_FILE), exist_ok=True)
-        # Only save non-terminal jobs
-        terminal_statuses = {'success', 'failed', 'stopped'}
-        active = {jid: info for jid, info in job_statuses.items() 
-                  if (info.get('status') or '').lower() not in terminal_statuses}
         with open(ACTIVE_JOBS_FILE, 'w') as f:
             json.dump(active, f, indent=2)
     except Exception as e:
         print(f"Warning: Could not save active jobs: {e}")
 
+def save_single_active_job(job_id: str, job_info: dict):
+    """Save a single active job immediately (for real-time persistence)."""
+    # Try MongoDB first
+    if USE_MONGO and mongo_state:
+        mongo_state.save_active_job(job_id, job_info)
+        return
+    
+    # Fallback: save all jobs
+    save_active_jobs()
+
+def remove_active_job(job_id: str):
+    """Remove a job from persistent storage when completed/stopped."""
+    if USE_MONGO and mongo_state:
+        mongo_state.remove_active_job(job_id)
+        mongo_state.clear_job_state(job_id)
+    # Also update file-based storage
+    save_active_jobs()
+
 def load_active_jobs():
-    """Load active jobs from disk after restart and reschedule them."""
-    try:
-        if os.path.exists(ACTIVE_JOBS_FILE):
-            with open(ACTIVE_JOBS_FILE, 'r') as f:
-                saved_jobs = json.load(f)
-            
-            if saved_jobs:
-                print(f"Found {len(saved_jobs)} interrupted job(s) from previous session. Resuming...")
-                for job_id, job_info in saved_jobs.items():
-                    # Restore to job_statuses with 'resuming' status
-                    job_info['status'] = 'pending'
-                    job_info['message'] = 'Resuming from previous session...'
-                    job_statuses[job_id] = job_info
-                    
-                    # Try to reschedule the job
-                    try:
-                        # Parse job type from job_id
-                        if job_id.startswith('promo_api_') or job_id.startswith('monitor_promo_'):
-                            # Auto promo - need to reload profile and reschedule
-                            profile_name = job_info.get('profile_name')
-                            link = job_info.get('link')
-                            if profile_name and link:
-                                profiles = profile_manager.load_profiles()
-                                if profile_name in profiles:
-                                    profile_data = profiles[profile_name]
-                                    platform_filter = None  # Extract from label if needed
-                                    
-                                    scheduler.add_job(
-                                        id=job_id,
-                                        func=api_runner.run_profile_api_promo,
-                                        trigger='date',
-                                        args=[profile_name, profile_data, link, job_id, update_job_status, save_history_entry_callback, requested_stops, platform_filter],
-                                        misfire_grace_time=None
-                                    )
-                                    print(f"  ✅ Rescheduled: {job_id} ({profile_name})")
-                                else:
-                                    print(f"  ⚠️ Cannot resume {job_id}: Profile '{profile_name}' not found")
-                                    job_statuses[job_id]['status'] = 'failed'
-                                    job_statuses[job_id]['message'] = 'Cannot resume: Profile not found'
-                        elif job_id.startswith('single_api_'):
-                            # Single promo - would need platform, engagement, link, quantity
-                            # For now, mark as unable to resume
-                            print(f"  ⚠️ Cannot auto-resume single promo: {job_id}")
-                            job_statuses[job_id]['status'] = 'stopped'
-                            job_statuses[job_id]['message'] = 'Server restarted - manual restart required'
-                    except Exception as e:
-                        print(f"  ❌ Error rescheduling {job_id}: {e}")
+    """Load active jobs after restart and reschedule them (uses MongoDB if available)."""
+    saved_jobs = {}
+    
+    # Try MongoDB first
+    if USE_MONGO and mongo_state:
+        saved_jobs = mongo_state.get_all_active_jobs()
+        if saved_jobs:
+            print(f"📦 Found {len(saved_jobs)} interrupted job(s) in MongoDB. Resuming...")
+    
+    # Fallback to file-based storage if MongoDB is empty or unavailable
+    if not saved_jobs:
+        try:
+            if os.path.exists(ACTIVE_JOBS_FILE):
+                with open(ACTIVE_JOBS_FILE, 'r') as f:
+                    saved_jobs = json.load(f)
+                if saved_jobs:
+                    print(f"📦 Found {len(saved_jobs)} interrupted job(s) in file storage. Resuming...")
+        except Exception as e:
+            print(f"Warning: Could not load active jobs from file: {e}")
+    
+    if not saved_jobs:
+        return
+    
+    for job_id, job_info in saved_jobs.items():
+        # Restore to job_statuses with 'resuming' status
+        job_info['status'] = 'pending'
+        job_info['message'] = 'Resuming from previous session...'
+        job_statuses[job_id] = job_info
+        
+        # Try to reschedule the job
+        try:
+            # Parse job type from job_id
+            if job_id.startswith('promo_api_') or job_id.startswith('monitor_promo_'):
+                # Auto promo - need to reload profile and reschedule
+                profile_name = job_info.get('profile_name')
+                link = job_info.get('link')
+                platform_filter = job_info.get('platform_filter')
+                
+                if profile_name and link:
+                    profiles = profile_manager.load_profiles()
+                    if profile_name in profiles:
+                        profile_data = profiles[profile_name]
+                        
+                        scheduler.add_job(
+                            id=job_id,
+                            func=api_runner.run_profile_api_promo,
+                            trigger='date',
+                            args=[profile_name, profile_data, link, job_id, update_job_status, save_history_entry_callback, requested_stops, platform_filter],
+                            misfire_grace_time=None
+                        )
+                        print(f"  ✅ Rescheduled: {job_id} ({profile_name})")
+                    else:
+                        print(f"  ⚠️ Cannot resume {job_id}: Profile '{profile_name}' not found")
                         job_statuses[job_id]['status'] = 'failed'
-                        job_statuses[job_id]['message'] = f'Resume failed: {e}'
-    except Exception as e:
-        print(f"Warning: Could not load active jobs: {e}")
-        traceback.print_exc()
+                        job_statuses[job_id]['message'] = 'Cannot resume: Profile not found'
+                        remove_active_job(job_id)
+            elif job_id.startswith('single_api_'):
+                # Single promo - would need platform, engagement, link, quantity
+                # For now, mark as unable to resume
+                print(f"  ⚠️ Cannot auto-resume single promo: {job_id}")
+                job_statuses[job_id]['status'] = 'stopped'
+                job_statuses[job_id]['message'] = 'Server restarted - manual restart required'
+                remove_active_job(job_id)
+        except Exception as e:
+            print(f"  ❌ Error rescheduling {job_id}: {e}")
+            job_statuses[job_id]['status'] = 'failed'
+            job_statuses[job_id]['message'] = f'Resume failed: {e}'
+            remove_active_job(job_id)
 
 # --- CONSTANTS --- (Keep location)
 # MONTIORING_JOB_ID = "instagram_monitoring_job" # Old ID, removed
@@ -358,8 +414,20 @@ def update_job_status(job_id, status, message=None):
         job_statuses[job_id]['status'] = status
         job_statuses[job_id]['message'] = message
         print(f"📣 Job Status Update: {job_id} -> {status} {f'({message})' if message else ''}")
-        # Save to disk after each update for restart recovery
-        save_active_jobs()
+        
+        # Check if job reached a terminal state
+        terminal_statuses = {'success', 'failed', 'stopped'}
+        if status.lower() in terminal_statuses:
+            # Remove from persistent storage when completed
+            remove_active_job(job_id)
+            # Also clear job state from api_runner
+            try:
+                api_runner.clear_job_state(job_id)
+            except Exception:
+                pass
+        else:
+            # Save to persistent storage for restart recovery
+            save_single_active_job(job_id, job_statuses[job_id])
     else:
         print(f"Warning: Job ID {job_id} not found in status tracker for update ({status}).")
 
@@ -623,6 +691,23 @@ def get_services_by_category():
     try:
         services = services_catalog.list_services(platform, engagement)
         return jsonify({"success": True, "services": services})
+    except Exception as e:
+        return jsonify({"success": False, "error": str(e)}), 500
+
+# --- Get Effective Service for a Platform/Engagement ---
+@app.route('/api/services/effective', methods=['GET'])
+def get_effective_service():
+    """Get the currently effective service for a platform/engagement."""
+    platform = (request.args.get('platform') or '').strip()
+    engagement = (request.args.get('engagement') or '').strip()
+    if not platform or not engagement:
+        return jsonify({"success": False, "error": "Missing 'platform' or 'engagement' query param"}), 400
+    try:
+        service = services_catalog.get_effective_service(platform, engagement)
+        if service:
+            return jsonify({"success": True, "service": service})
+        else:
+            return jsonify({"success": False, "error": f"No service found for {platform}/{engagement}"})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)}), 500
 
@@ -895,7 +980,9 @@ def start_promo_route():
             'label': label,
             'link': link,
             'container_id': 'auto-promo-jobs',
-            'profile_name': profile_name  # For resume capability
+            'profile_name': profile_name,
+            'platform_filter': platform_filter,
+            'started_at': datetime.datetime.now().isoformat()
         }
         scheduler.add_job(
             id=job_id,
@@ -904,7 +991,8 @@ def start_promo_route():
             args=[profile_name, profile_data, link, job_id, update_job_status, save_history_entry_callback, requested_stops, platform_filter],
             misfire_grace_time=None
         )
-        save_active_jobs()  # Save to disk for restart recovery
+        # Save to MongoDB/disk for restart recovery
+        save_single_active_job(job_id, job_statuses[job_id])
         print(f"🗓️ Scheduled API job {job_id} for profile '{profile_name}'")
         return jsonify({"success": True, "message": f"Automation scheduled for profile '{profile_name}'.", "job_id": job_id}) 
     except Exception as e:
